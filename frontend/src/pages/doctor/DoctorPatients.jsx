@@ -1,129 +1,261 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import DoctorLayout from "../../components/DoctorLayout";
+import api from "../../services/api";
 
-const PATIENTS = [
-  {
-    id: "PHC-2026-0012", name: "Kamal Perera", age: 54, gender: "Male", dob: "12 Mar 1972",
-    blood: "B+", phone: "0712 345 678", address: "No. 45, Galle Road, Matara",
-    registered: "05 Jan 2026", lastVisit: "15 Feb 2026", totalVisits: 5,
-    conditions: ["Type 2 Diabetes", "Hypertension"],
-    allergies: ["Penicillin"],
-    currentMeds: ["Metformin 500mg", "Lisinopril 10mg"],
-    visits: [
-      { date: "15 Feb 2026", type: "General Consultation", channeling: "012", rx: "RX-2026-0089", summary: "Diabetes & BP review. Blood glucose elevated. Labs ordered." },
-      { date: "28 Jan 2026", type: "Follow-up", channeling: "009", rx: "RX-2026-0071", summary: "Medication adjustment. Lisinopril dose increased." },
-      { date: "10 Jan 2026", type: "Annual Check", channeling: "003", rx: "RX-2026-0058", summary: "Routine annual check. ECG normal. Lipid profile within range." },
-    ],
-    vitals: { bp: "138/88", glucose: "148 mg/dL", weight: "78 kg", bmi: "26.4", pulse: "78 bpm" },
-  },
-  {
-    id: "PHC-2026-0019", name: "Sumudu Silva", age: 29, gender: "Female", dob: "04 Jun 1996",
-    blood: "O+", phone: "0765 234 567", address: "No. 12, Rahula Road, Matara",
-    registered: "10 Jan 2026", lastVisit: "15 Feb 2026", totalVisits: 2,
-    conditions: ["Upper Respiratory Infection"],
-    allergies: [],
-    currentMeds: ["Amoxicillin 250mg", "Paracetamol 500mg"],
-    visits: [
-      { date: "15 Feb 2026", type: "General Consultation", channeling: "002", rx: "RX-2026-0088", summary: "Sore throat and fever for 3 days. Prescribed antibiotics." },
-      { date: "10 Jan 2026", type: "General Consultation", channeling: "008", rx: "RX-2026-0042", summary: "Mild flu. Rest and fluids advised." },
-    ],
-    vitals: { bp: "112/72", glucose: "—", weight: "58 kg", bmi: "21.2", pulse: "84 bpm" },
-  },
-  {
-    id: "PHC-2026-0031", name: "Ruwan Fernando", age: 47, gender: "Male", dob: "19 Sep 1978",
-    blood: "A+", phone: "0777 543 210", address: "No. 78, Station Road, Matara",
-    registered: "15 Jan 2026", lastVisit: "15 Feb 2026", totalVisits: 3,
-    conditions: ["Hyperlipidaemia", "Hypertension"],
-    allergies: ["Sulfonamides"],
-    currentMeds: ["Atorvastatin 10mg", "Amlodipine 5mg", "Aspirin 75mg"],
-    visits: [
-      { date: "15 Feb 2026", type: "Follow-up", channeling: "017", rx: "RX-2026-0091", summary: "Lipid profile elevated. Statin dose maintained. Diet counselling." },
-      { date: "01 Feb 2026", type: "General Consultation", channeling: "006", rx: "RX-2026-0065", summary: "BP reading: 148/92. Amlodipine added to regimen." },
-      { date: "15 Jan 2026", type: "First Visit", channeling: "001", rx: "RX-2026-0048", summary: "Presented with chest tightness. ECG normal. Lipid test ordered." },
-    ],
-    vitals: { bp: "142/90", glucose: "—", weight: "82 kg", bmi: "27.8", pulse: "76 bpm" },
-  },
-  {
-    id: "PHC-2026-0044", name: "Dilani Bandara", age: 38, gender: "Female", dob: "22 Nov 1987",
-    blood: "AB+", phone: "0712 678 901", address: "No. 33, Anagarika Mawatha, Matara",
-    registered: "20 Jan 2026", lastVisit: "15 Feb 2026", totalVisits: 2,
-    conditions: ["Suspected Type 2 Diabetes"],
-    allergies: [],
-    currentMeds: ["Metformin 500mg", "Glipizide 5mg"],
-    visits: [
-      { date: "15 Feb 2026", type: "General Consultation", channeling: "016", rx: "RX-2026-0090", summary: "Increased thirst and fatigue. FBG = 148 mg/dL. Started Metformin." },
-      { date: "20 Jan 2026", type: "First Visit", channeling: "004", rx: "—", summary: "No complaints. Routine registration. Blood sugar screening ordered." },
-    ],
-    vitals: { bp: "118/76", glucose: "148 mg/dL", weight: "68 kg", bmi: "24.5", pulse: "80 bpm" },
-  },
-  {
-    id: "PHC-2026-0051", name: "Suresh Jayasinghe", age: 52, gender: "Male", dob: "07 Apr 1973",
-    blood: "B+", phone: "0712 890 123", address: "No. 9, Vijaya Road, Matara",
-    registered: "08 Feb 2026", lastVisit: "15 Feb 2026", totalVisits: 2,
-    conditions: ["Suspected Hypothyroidism", "GERD"],
-    allergies: [],
-    currentMeds: ["Omeprazole 20mg"],
-    visits: [
-      { date: "15 Feb 2026", type: "General Consultation", channeling: "015", rx: "RX-2026-0088", summary: "Weight gain, fatigue. TSH test ordered. Omeprazole continued." },
-      { date: "08 Feb 2026", type: "First Visit", channeling: "005", rx: "RX-2026-0082", summary: "Heartburn and indigestion. Omeprazole prescribed." },
-    ],
-    vitals: { bp: "124/80", glucose: "—", weight: "91 kg", bmi: "29.1", pulse: "74 bpm" },
-  },
-  {
-    id: "PHC-2026-0062", name: "Nimesha Silva", age: 29, gender: "Female", dob: "15 Dec 1996",
-    blood: "O-", phone: "0765 012 345", address: "No. 21, Lake Road, Matara",
-    registered: "12 Feb 2026", lastVisit: "15 Feb 2026", totalVisits: 1,
-    conditions: ["Upper Respiratory Infection"],
-    allergies: [],
-    currentMeds: ["Amoxicillin 500mg", "Paracetamol 500mg"],
-    visits: [
-      { date: "15 Feb 2026", type: "General Consultation", channeling: "019", rx: "RX-2026-0092", summary: "Sore throat, mild fever. CBC ordered. Antibiotics prescribed." },
-    ],
-    vitals: { bp: "110/70", glucose: "—", weight: "54 kg", bmi: "20.1", pulse: "88 bpm" },
-  },
-];
+function getInitials(name = "") {
+  return name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
+}
+function calcAge(birthday) {
+  if (!birthday) return null;
+  return Math.floor((Date.now() - new Date(birthday)) / (365.25 * 24 * 60 * 60 * 1000));
+}
+function fmt(dateStr) {
+  if (!dateStr) return "—";
+  return new Date(dateStr).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
 
+// ── Lab request detail modal ──────────────────────────────────
+function LabRequestDetailModal({ lrId, onClose }) {
+  const [lr, setLr]           = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState("");
+
+  useEffect(() => {
+    api.get(`/lab-requests/${lrId}`)
+      .then(res => setLr(res.data.labRequest))
+      .catch(() => setError("Could not load lab request."))
+      .finally(() => setLoading(false));
+  }, [lrId]);
+
+  const statusStyle = {
+    pending:     { bg: "bg-amber-50",  text: "text-amber-700",  border: "border-amber-200",  label: "Pending"     },
+    in_progress: { bg: "bg-blue-50",   text: "text-blue-700",   border: "border-blue-200",   label: "In Progress" },
+    completed:   { bg: "bg-green-50",  text: "text-green-700",  border: "border-green-200",  label: "Completed"   },
+    cancelled:   { bg: "bg-red-50",    text: "text-red-700",    border: "border-red-200",    label: "Cancelled"   },
+  }[lr?.status] || { bg: "bg-gray-50", text: "text-gray-600", border: "border-gray-200", label: "—" };
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+          <div>
+            <h3 className="font-bold text-gray-800 text-lg" style={{ fontFamily: "'Playfair Display', serif" }}>Lab Request Details</h3>
+            <p className="text-xs font-mono text-purple-600 mt-0.5">{lrId}</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 text-gray-500">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <div className="p-6">
+          {loading && <div className="flex flex-col items-center py-12 gap-3"><div className="w-8 h-8 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin"/><p className="text-sm text-gray-400">Loading…</p></div>}
+          {error  && <div className="bg-red-50 border border-red-200 rounded-2xl p-5 text-center"><div className="text-3xl mb-2">🧪</div><p className="text-sm text-red-600">{error}</p></div>}
+          {lr && (
+            <div className="space-y-4">
+              {/* Patient + status */}
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs text-gray-400 uppercase tracking-wide">Patient</p>
+                  <p className="font-semibold text-gray-800">{lr.patientName}</p>
+                  {lr.channelingNo && <p className="text-xs text-gray-400 mt-0.5">Ch. #{lr.channelingNo}</p>}
+                </div>
+                <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}>
+                  {statusStyle.label}
+                </span>
+              </div>
+
+              {/* Meta */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50 rounded-2xl p-3">
+                  <p className="text-xs text-gray-400">Requested</p>
+                  <p className="text-sm font-semibold text-gray-700 mt-0.5">{fmt(lr.createdAt)}</p>
+                </div>
+                <div className="bg-gray-50 rounded-2xl p-3">
+                  <p className="text-xs text-gray-400">Priority</p>
+                  <p className={`text-sm font-bold mt-0.5 ${lr.priority === "Urgent" ? "text-red-600" : "text-gray-700"}`}>
+                    {lr.priority === "Urgent" ? "🔴 Urgent" : "🟢 Routine"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Tests */}
+              {lr.tests?.length > 0 && (
+                <div className="bg-purple-50 border border-purple-100 rounded-2xl p-4">
+                  <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-3">🧪 Tests Requested</p>
+                  <div className="flex flex-wrap gap-2">
+                    {lr.tests.map((t, i) => (
+                      <span key={i}
+                        className={`text-xs px-3 py-1.5 rounded-full font-medium border ${
+                          t.isOther
+                            ? "bg-amber-50 text-amber-700 border-amber-200"
+                            : "bg-white text-purple-700 border-purple-200"
+                        }`}>
+                        {t.isOther ? `★ ${t.name}` : t.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Pre-test instructions */}
+              {lr.preTestInstructions && (
+                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+                  <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Pre-Test Instructions</p>
+                  <p className="text-sm text-blue-800 leading-relaxed">{lr.preTestInstructions}</p>
+                </div>
+              )}
+
+              {/* Clinical notes */}
+              {lr.clinicalNotes && (
+                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Clinical Notes</p>
+                  <p className="text-sm text-gray-700 leading-relaxed">{lr.clinicalNotes}</p>
+                </div>
+              )}
+
+              {/* Linked prescription */}
+              {lr.prescriptionRef && (
+                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-3 flex items-center gap-2">
+                  <span className="text-sm">📋</span>
+                  <span className="text-xs text-blue-700 font-medium">Linked Prescription:</span>
+                  <span className="text-xs font-mono text-blue-600">{lr.prescriptionRef}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Prescription detail modal ─────────────────────────────────
+function PrescriptionDetailModal({ rxId, onClose }) {
+  const [rx, setRx]           = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState("");
+
+  useEffect(() => {
+    api.get(`/prescriptions/${rxId}`)
+      .then(res => setRx(res.data.prescription))
+      .catch(() => setError("Could not load prescription."))
+      .finally(() => setLoading(false));
+  }, [rxId]);
+
+  const s = {
+    pending:   { bg: "bg-amber-50",  text: "text-amber-700",  border: "border-amber-200",  label: "Pending"   },
+    dispensed: { bg: "bg-green-50",  text: "text-green-700",  border: "border-green-200",  label: "Dispensed" },
+    cancelled: { bg: "bg-red-50",    text: "text-red-700",    border: "border-red-200",    label: "Cancelled" },
+  }[rx?.pharmacyStatus] || { bg: "bg-gray-50", text: "text-gray-600", border: "border-gray-200", label: "—" };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+          <div>
+            <h3 className="font-bold text-gray-800 text-lg" style={{ fontFamily: "'Playfair Display', serif" }}>Prescription Details</h3>
+            <p className="text-xs font-mono text-blue-600 mt-0.5">{rxId}</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 text-gray-500">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <div className="p-6">
+          {loading && <div className="flex flex-col items-center py-12 gap-3"><div className="w-8 h-8 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin"/><p className="text-sm text-gray-400">Loading…</p></div>}
+          {error  && <div className="bg-red-50 border border-red-200 rounded-2xl p-5 text-center"><div className="text-3xl mb-2">📋</div><p className="text-sm text-red-600">{error}</p></div>}
+          {rx && (
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs text-gray-400 uppercase tracking-wide">Patient</p>
+                  <p className="font-semibold text-gray-800">{rx.patientName}</p>
+                  {rx.channelingNo && <p className="text-xs text-gray-400 mt-0.5">Ch. #{rx.channelingNo}</p>}
+                </div>
+                <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${s.bg} ${s.text} ${s.border}`}>{s.label}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50 rounded-2xl p-3"><p className="text-xs text-gray-400">Issued</p><p className="text-sm font-semibold text-gray-700 mt-0.5">{fmt(rx.createdAt)}</p></div>
+                {rx.dispensedAt && <div className="bg-green-50 rounded-2xl p-3"><p className="text-xs text-green-600">Dispensed</p><p className="text-sm font-semibold text-green-700 mt-0.5">{fmt(rx.dispensedAt)}</p></div>}
+              </div>
+              {rx.medications?.length > 0 && (
+                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+                  <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-3">💊 Medications</p>
+                  <div className="space-y-2">
+                    {rx.medications.map((med, i) => (
+                      <div key={i} className="bg-white rounded-xl p-3 border border-blue-100 flex items-start gap-3">
+                        <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-700 flex-shrink-0">{i + 1}</div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800">{med.name} <span className="font-normal text-gray-500">{med.dosage}</span></p>
+                          <p className="text-xs text-gray-500 mt-0.5">{med.frequency} · {med.duration}</p>
+                          {med.instructions && <p className="text-xs text-blue-600 mt-0.5 italic">{med.instructions}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {rx.clinicalNotes && <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100"><p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Clinical Notes</p><p className="text-sm text-gray-700 leading-relaxed">{rx.clinicalNotes}</p></div>}
+              {rx.labRequestRef && <div className="bg-purple-50 border border-purple-100 rounded-2xl p-3 flex items-center gap-2"><span className="text-sm">🧪</span><span className="text-xs text-purple-700 font-medium">Linked Lab Request:</span><span className="text-xs font-mono text-purple-600">{rx.labRequestRef}</span></div>}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Patient modal ─────────────────────────────────────────────
 function PatientModal({ patient, onClose }) {
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab]                     = useState("overview");
+  const [prescriptions, setPrescriptions] = useState([]);
+  const [loadingRx, setLoadingRx]         = useState(false);
+  const [selectedRx, setSelectedRx]       = useState(null);
+  const [selectedLr, setSelectedLr]       = useState(null);
 
-  const TABS = [
-    { id: "overview", label: "Overview" },
-    { id: "visits", label: "Visit History" },
-    { id: "vitals", label: "Vitals" },
-  ];
+  useEffect(() => {
+    if (tab === "visits") {
+      setLoadingRx(true);
+      api.get(`/prescriptions?patientId=${patient.userId}`)
+        .then(res => setPrescriptions(res.data.prescriptions || []))
+        .catch(() => setPrescriptions([]))
+        .finally(() => setLoadingRx(false));
+    }
+  }, [tab, patient.userId]);
+
+  const pd  = patient.patientDetails || {};
+  const age = calcAge(pd.birthday);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      {selectedRx && <PrescriptionDetailModal rxId={selectedRx} onClose={() => setSelectedRx(null)} />}
+      {selectedLr && <LabRequestDetailModal   lrId={selectedLr}  onClose={() => setSelectedLr(null)} />}
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div style={{ background: "linear-gradient(135deg, #0D2137, #1565C0)" }}>
           <div className="px-6 pt-5 pb-0 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-lg border-2 border-white/20"
-                style={{ background: "rgba(255,255,255,0.15)" }}>
-                {patient.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center overflow-hidden border-2 border-white/20" style={{ background: "rgba(255,255,255,0.15)" }}>
+                {patient.photo ? <img src={patient.photo} alt="" className="w-full h-full object-cover"/> : <span className="text-white font-bold text-lg">{getInitials(patient.name)}</span>}
               </div>
               <div>
-                <h3 className="text-white font-bold text-xl" style={{ fontFamily: "'Playfair Display', serif" }}>
-                  {patient.name}
-                </h3>
-                <p className="text-white/60 text-xs mt-0.5">
-                  {patient.id} · Age {patient.age} · {patient.gender} · {patient.blood}
-                </p>
+                <h3 className="text-white font-bold text-xl" style={{ fontFamily: "'Playfair Display', serif" }}>{patient.name}</h3>
+                <p className="text-white/60 text-xs mt-0.5">{patient.userId}{age ? ` · Age ${age}` : ""}{pd.gender ? ` · ${pd.gender}` : ""}{pd.bloodGroup ? ` · ${pd.bloodGroup}` : ""}</p>
               </div>
             </div>
             <button onClick={onClose} className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition self-start">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
-                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
           <div className="flex gap-1 px-6 mt-4">
-            {TABS.map(t => (
+            {[{ id: "overview", label: "Overview" }, { id: "visits", label: "Prescriptions" }, { id: "vitals", label: "Vitals" }].map(t => (
               <button key={t.id} onClick={() => setTab(t.id)}
-                className={`px-5 py-2.5 text-sm font-medium border-b-2 transition ${
-                  tab === t.id ? "text-white border-cyan-300" : "text-white/50 border-transparent hover:text-white/80"
-                }`}>
+                className={`px-5 py-2.5 text-sm font-medium border-b-2 transition ${tab === t.id ? "text-white border-cyan-300" : "text-white/50 border-transparent hover:text-white/80"}`}>
                 {t.label}
               </button>
             ))}
@@ -131,106 +263,135 @@ function PatientModal({ patient, onClose }) {
         </div>
 
         <div className="p-6 space-y-5">
-          {/* Overview tab */}
+          {/* Overview */}
           {tab === "overview" && (
             <>
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-gray-50 rounded-2xl space-y-2.5">
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Personal Info</p>
                   {[
-                    { label: "Phone", val: patient.phone },
-                    { label: "DOB", val: patient.dob },
-                    { label: "Address", val: patient.address },
-                    { label: "Registered", val: patient.registered },
+                    { label: "Phone",      val: patient.telephone },
+                    { label: "Email",      val: patient.email },
+                    { label: "DOB",        val: pd.birthday ? fmt(pd.birthday) : "—" },
+                    { label: "Address",    val: pd.address || "—" },
+                    { label: "Registered", val: fmt(patient.createdAt) },
                   ].map(item => (
-                    <div key={item.label} className="flex justify-between">
-                      <span className="text-xs text-gray-400">{item.label}</span>
-                      <span className="text-xs font-semibold text-gray-700 text-right max-w-[60%]">{item.val}</span>
+                    <div key={item.label} className="flex justify-between gap-2">
+                      <span className="text-xs text-gray-400 flex-shrink-0">{item.label}</span>
+                      <span className="text-xs font-semibold text-gray-700 text-right truncate max-w-[60%]">{item.val}</span>
                     </div>
                   ))}
                 </div>
                 <div className="space-y-3">
                   <div className="p-4 bg-red-50 rounded-2xl border border-red-100">
                     <p className="text-xs font-semibold text-red-600 uppercase mb-2">Active Conditions</p>
-                    {patient.conditions.length ? patient.conditions.map(c => (
-                      <div key={c} className="flex items-center gap-2 text-sm text-red-800 mb-1">
-                        <div className="w-1.5 h-1.5 rounded-full bg-red-400" />{c}
-                      </div>
-                    )) : <p className="text-xs text-gray-400">None recorded</p>}
+                    {pd.chronicConditions
+                      ? pd.chronicConditions.split(",").map(c => <div key={c} className="flex items-center gap-2 text-sm text-red-800 mb-1"><div className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0"/>{c.trim()}</div>)
+                      : <p className="text-xs text-gray-400">None recorded</p>}
                   </div>
                   <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
                     <p className="text-xs font-semibold text-amber-600 uppercase mb-2">Allergies</p>
-                    {patient.allergies.length ? patient.allergies.map(a => (
-                      <span key={a} className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full mr-1">⚠️ {a}</span>
-                    )) : <p className="text-xs text-gray-400">None known</p>}
+                    {pd.allergies?.length
+                      ? pd.allergies.map(a => <span key={a} className="inline-block text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full mr-1 mb-1">⚠️ {a}</span>)
+                      : <p className="text-xs text-gray-400">None known</p>}
                   </div>
                 </div>
               </div>
-              <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
-                <p className="text-xs font-semibold text-blue-700 uppercase mb-2">Current Medications</p>
-                <div className="flex flex-wrap gap-2">
-                  {patient.currentMeds.length ? patient.currentMeds.map(m => (
-                    <span key={m} className="text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded-full">💊 {m}</span>
-                  )) : <p className="text-xs text-gray-400">None prescribed</p>}
+              {pd.currentMedications && (
+                <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                  <p className="text-xs font-semibold text-blue-700 uppercase mb-2">Current Medications</p>
+                  <div className="flex flex-wrap gap-2">
+                    {pd.currentMedications.split(",").map(m => <span key={m} className="text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded-full">💊 {m.trim()}</span>)}
+                  </div>
                 </div>
-              </div>
+              )}
+              {pd.emergencyContactName && (
+                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                  <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Emergency Contact</p>
+                  <p className="text-sm font-semibold text-gray-800">{pd.emergencyContactName}</p>
+                  {pd.emergencyContactNumber && <p className="text-xs text-gray-500 mt-0.5">{pd.emergencyContactNumber}</p>}
+                </div>
+              )}
             </>
           )}
 
-          {/* Visits tab */}
+          {/* Prescriptions tab */}
           {tab === "visits" && (
-            <div className="space-y-3">
-              {patient.visits.map((v, i) => (
-                <div key={i} className="flex gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                  <div className="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-white flex-shrink-0"
-                    style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}>
-                    <span className="text-xs font-bold">{v.date.split(" ")[1]}</span>
-                    <span className="text-base font-bold leading-none">{v.date.split(" ")[0]}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-semibold text-gray-800">{v.type}</span>
-                      <span className="font-mono text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">Ch. #{v.channeling}</span>
-                    </div>
-                    <p className="text-xs text-gray-600 leading-relaxed">{v.summary}</p>
-                    {v.rx !== "—" && (
-                      <p className="text-xs text-blue-600 mt-1 font-medium">📋 {v.rx}</p>
-                    )}
-                  </div>
+            <div>
+              {loadingRx ? (
+                <div className="flex flex-col items-center py-10 gap-3">
+                  <div className="w-6 h-6 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin"/>
+                  <p className="text-sm text-gray-400">Loading prescriptions…</p>
                 </div>
-              ))}
+              ) : prescriptions.length === 0 ? (
+                <div className="text-center py-10">
+                  <div className="text-4xl mb-3">📋</div>
+                  <p className="text-gray-500 font-medium">No prescriptions found</p>
+                  <p className="text-xs text-gray-400 mt-1">No prescriptions have been issued for this patient yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {prescriptions.map(rx => (
+                    <div key={rx._id} className="flex gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-blue-100 transition">
+                      <div className="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-white flex-shrink-0"
+                        style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}>
+                        <span className="text-xs font-bold leading-none">{new Date(rx.createdAt).toLocaleDateString("en-GB", { month: "short" })}</span>
+                        <span className="text-base font-bold leading-none">{new Date(rx.createdAt).getDate()}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <button onClick={() => setSelectedRx(rx.prescriptionId)} className="inline-flex items-center gap-1.5 group/rx">
+                            <span className="font-mono text-sm font-semibold text-blue-600 group-hover/rx:text-blue-800 group-hover/rx:underline transition">{rx.prescriptionId}</span>
+                            <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 text-blue-400 opacity-0 group-hover/rx:opacity-100 transition">
+                              <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd"/>
+                            </svg>
+                          </button>
+                          {rx.channelingNo && <span className="font-mono text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">Ch. #{rx.channelingNo}</span>}
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ml-auto ${rx.pharmacyStatus === "dispensed" ? "bg-green-100 text-green-700" : rx.pharmacyStatus === "cancelled" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                            {rx.pharmacyStatus}
+                          </span>
+                        </div>
+                        {rx.medications?.length > 0 && <p className="text-xs text-gray-600 mt-1">💊 {rx.medications.map(m => `${m.name} ${m.dosage}`).join(", ")}</p>}
+                        {rx.clinicalNotes && <p className="text-xs text-gray-400 mt-1 italic truncate">{rx.clinicalNotes}</p>}
+                        {rx.labRequestRef && (
+                          <button onClick={() => setSelectedLr(rx.labRequestRef)} className="inline-flex items-center gap-1.5 mt-0.5 group/lr">
+                            <span className="text-xs">🧪</span>
+                            <span className="text-xs font-mono font-semibold text-purple-600 group-hover/lr:text-purple-800 group-hover/lr:underline transition">{rx.labRequestRef}</span>
+                            <svg viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 text-purple-400 opacity-0 group-hover/lr:opacity-100 transition">
+                              <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd"/>
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
-          {/* Vitals tab */}
+          {/* Vitals */}
           {tab === "vitals" && (
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: "Blood Pressure", val: patient.vitals.bp, unit: "mmHg", icon: "❤️", ok: patient.vitals.bp.split("/")[0] < 130 },
-                { label: "Blood Glucose", val: patient.vitals.glucose, unit: "fasting", icon: "🩸", ok: patient.vitals.glucose === "—" || parseInt(patient.vitals.glucose) < 100 },
-                { label: "Weight", val: patient.vitals.weight, unit: "", icon: "⚖️", ok: true },
-                { label: "BMI", val: patient.vitals.bmi, unit: "", icon: "📊", ok: parseFloat(patient.vitals.bmi) < 25 },
-                { label: "Pulse Rate", val: patient.vitals.pulse, unit: "", icon: "💓", ok: true },
+                { label: "Blood Group",    val: pd.bloodGroup || "—",             icon: "🩸" },
+                { label: "Age",            val: age ? `${age} yrs` : "—",         icon: "🎂" },
+                { label: "Gender",         val: pd.gender || "—",                 icon: "👤" },
+                { label: "Emergency Tel",  val: pd.emergencyContactNumber || "—", icon: "📞" },
               ].map(v => (
-                <div key={v.label} className={`p-4 rounded-2xl border ${v.ok ? "bg-green-50 border-green-100" : "bg-amber-50 border-amber-100"}`}>
-                  <div className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: v.ok ? "#2E7D32" : "#E65100" }}>
-                    {v.label}
-                  </div>
-                  <div className="text-xl font-bold text-gray-800" style={{ fontFamily: "'Playfair Display', serif" }}>{v.val}</div>
-                  {v.unit && <div className="text-xs text-gray-400 mt-0.5">{v.unit}</div>}
+                <div key={v.label} className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">{v.icon} {v.label}</div>
+                  <div className="text-lg font-bold text-gray-800" style={{ fontFamily: "'Playfair Display', serif" }}>{v.val}</div>
                 </div>
               ))}
             </div>
           )}
 
           <div className="flex gap-3 pt-2">
-            <a href="/doctor/prescriptions"
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-white text-sm font-semibold shadow-lg transition hover:opacity-90"
-              style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}>
+            <a href="/doctor/prescriptions" className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-white text-sm font-semibold shadow-lg transition hover:opacity-90" style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}>
               💊 New Prescription
             </a>
-            <a href="/doctor/lab-requests"
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition">
+            <a href="/doctor/lab-requests" className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition">
               🧪 Request Lab Test
             </a>
           </div>
@@ -240,129 +401,127 @@ function PatientModal({ patient, onClose }) {
   );
 }
 
+// ── Main ──────────────────────────────────────────────────────
 export default function DoctorPatients() {
-  const [search, setSearch] = useState("");
+  const [patients, setPatients] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [search, setSearch]     = useState("");
   const [selected, setSelected] = useState(null);
-  const [conditionFilter, setConditionFilter] = useState("All");
 
-  const CONDITIONS = ["All", "Diabetes", "Hypertension", "Antibiotic", "Hyperlipidaemia", "GERD"];
+  const fetchPatients = useCallback(async () => {
+    try {
+      const res = await api.get(`/patients${search ? `?search=${encodeURIComponent(search)}` : ""}`);
+      setPatients(res.data.patients || []);
+    } catch { setPatients([]); }
+    finally  { setLoading(false); }
+  }, [search]);
 
-  const filtered = PATIENTS.filter(p => {
-    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.id.toLowerCase().includes(search.toLowerCase()) ||
-      p.phone.includes(search);
-    const matchCond = conditionFilter === "All" ||
-      p.conditions.some(c => c.toLowerCase().includes(conditionFilter.toLowerCase()));
-    return matchSearch && matchCond;
-  });
+  useEffect(() => {
+    setLoading(true);
+    const t = setTimeout(fetchPatients, 300);
+    return () => clearTimeout(t);
+  }, [fetchPatients]);
+
+  const now = new Date();
+  const stats = {
+    total:       patients.length,
+    conditions:  patients.filter(p => p.patientDetails?.chronicConditions).length,
+    allergies:   patients.filter(p => p.patientDetails?.allergies?.length > 0).length,
+    newThisMonth: patients.filter(p => { const d = new Date(p.createdAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }).length,
+  };
 
   return (
     <DoctorLayout activePage="Patient Records">
       {selected && <PatientModal patient={selected} onClose={() => setSelected(null)} />}
 
       <div className="p-6 space-y-5">
-        {/* Header */}
         <div>
-          <h1 className="text-xl font-bold text-gray-800" style={{ fontFamily: "'Playfair Display', serif" }}>
-            Patient Records
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">All registered patients under Dr. M.T.D. Jayaweera</p>
+          <h1 className="text-xl font-bold text-gray-800" style={{ fontFamily: "'Playfair Display', serif" }}>Patient Records</h1>
+          <p className="text-sm text-gray-400 mt-1">All registered patients</p>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-4 gap-4">
           {[
-            { label: "Total Patients", value: PATIENTS.length, color: "#1565C0", bg: "#E3F2FD" },
-            { label: "Seen This Month", value: 6, color: "#00897B", bg: "#E0F2F1" },
-            { label: "With Active Conditions", value: PATIENTS.filter(p => p.conditions.length > 0).length, color: "#E65100", bg: "#FFF3E0" },
-            { label: "New This Month", value: 2, color: "#7B1FA2", bg: "#F3E5F5" },
+            { label: "Total Patients",   value: stats.total,        color: "#1565C0" },
+            { label: "With Conditions",  value: stats.conditions,   color: "#E65100" },
+            { label: "With Allergies",   value: stats.allergies,    color: "#7B1FA2" },
+            { label: "New This Month",   value: stats.newThisMonth, color: "#00897B" },
           ].map(s => (
             <div key={s.label} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
-              <div className="text-2xl font-bold" style={{ fontFamily: "'Playfair Display', serif", color: s.color }}>{s.value}</div>
+              <div className="text-2xl font-bold" style={{ fontFamily: "'Playfair Display', serif", color: s.color }}>{loading ? "—" : s.value}</div>
               <div className="text-xs text-gray-500 mt-0.5">{s.label}</div>
             </div>
           ))}
         </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex flex-wrap items-center gap-3">
-          <div className="flex-1 min-w-52 relative">
+        {/* Search */}
+        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+          <div className="relative">
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
               <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"/>
             </svg>
-            <input type="text" placeholder="Search by name, ID, or phone..." value={search} onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition" />
+            <input type="text" placeholder="Search by name, patient ID, or phone..." value={search} onChange={e => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition"/>
+            {search && <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/></svg>
+            </button>}
           </div>
-          <div className="flex gap-2 flex-wrap">
-            {CONDITIONS.map(c => (
-              <button key={c} onClick={() => setConditionFilter(c)}
-                className={`px-3 py-2 rounded-xl text-xs font-semibold transition ${
-                  conditionFilter === c ? "text-white shadow-md" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-                style={conditionFilter === c ? { background: "linear-gradient(135deg, #1565C0, #00ACC1)" } : {}}>
-                {c}
-              </button>
+        </div>
+
+        {/* Cards */}
+        {loading ? (
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="bg-white rounded-2xl border border-gray-100 p-5 animate-pulse">
+                <div className="flex items-center gap-3 mb-4"><div className="w-11 h-11 bg-gray-200 rounded-xl"/><div className="flex-1 space-y-2"><div className="h-4 bg-gray-200 rounded w-3/4"/><div className="h-3 bg-gray-100 rounded w-1/2"/></div></div>
+                <div className="space-y-2"><div className="h-3 bg-gray-100 rounded"/><div className="h-3 bg-gray-100 rounded w-2/3"/></div>
+              </div>
             ))}
           </div>
-        </div>
-
-        {/* Patient cards */}
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map(patient => (
-            <div key={patient.id}
-              onClick={() => setSelected(patient)}
-              className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:border-blue-200 transition cursor-pointer overflow-hidden group">
-              {/* Card header */}
-              <div className="p-5">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-                    style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}>
-                    {patient.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+        ) : patients.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-gray-100 p-16 text-center">
+            <div className="text-5xl mb-4">👤</div>
+            <p className="text-gray-600 font-semibold text-lg">No patients found</p>
+            <p className="text-sm text-gray-400 mt-1">{search ? `No results for "${search}"` : "No patients registered yet."}</p>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {patients.map(patient => {
+              const pd = patient.patientDetails || {};
+              const age = calcAge(pd.birthday);
+              return (
+                <div key={patient._id} onClick={() => setSelected(patient)}
+                  className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:border-blue-200 transition cursor-pointer overflow-hidden group">
+                  <div className="p-5">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-11 h-11 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0" style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}>
+                        {patient.photo ? <img src={patient.photo} alt="" className="w-full h-full object-cover"/> : <span className="text-white font-bold text-sm">{getInitials(patient.name)}</span>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-gray-800 truncate group-hover:text-blue-700 transition">{patient.name}</div>
+                        <div className="text-xs text-gray-400">{patient.userId}{age ? ` · Age ${age}` : ""}{pd.gender ? ` · ${pd.gender}` : ""}</div>
+                      </div>
+                      {pd.bloodGroup && <span className="text-xs bg-blue-50 text-blue-700 font-bold px-2 py-1 rounded-full flex-shrink-0">{pd.bloodGroup}</span>}
+                    </div>
+                    {pd.chronicConditions
+                      ? <div className="flex flex-wrap gap-1.5 mb-3">{pd.chronicConditions.split(",").map(c => <span key={c} className="text-xs bg-red-50 text-red-700 px-2 py-0.5 rounded-full border border-red-100">{c.trim()}</span>)}</div>
+                      : <p className="text-xs text-gray-400 mb-3">No active conditions</p>}
+                    {pd.allergies?.length > 0 && <div className="flex items-center gap-1.5 mb-3"><span className="text-xs text-amber-600 font-semibold">⚠️</span><span className="text-xs text-amber-700 truncate">{pd.allergies.join(", ")}</span></div>}
+                    <div className="flex items-center justify-between text-xs text-gray-400">
+                      <span>Registered: <span className="text-gray-600 font-medium">{fmt(patient.createdAt)}</span></span>
+                      <span>{patient.telephone}</span>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-gray-800 truncate group-hover:text-blue-700 transition">{patient.name}</div>
-                    <div className="text-xs text-gray-400">{patient.id} · Age {patient.age} · {patient.gender}</div>
+                  <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                    <span className="text-xs text-gray-400 truncate">{patient.email}</span>
+                    <span className="text-xs font-semibold text-blue-600 group-hover:underline flex-shrink-0 ml-2">View Records →</span>
                   </div>
-                  <span className="text-xs bg-blue-50 text-blue-700 font-bold px-2 py-1 rounded-full flex-shrink-0">{patient.blood}</span>
                 </div>
-
-                {/* Conditions */}
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                  {patient.conditions.length ? patient.conditions.map(c => (
-                    <span key={c} className="text-xs bg-red-50 text-red-700 px-2 py-0.5 rounded-full border border-red-100">{c}</span>
-                  )) : <span className="text-xs text-gray-400">No active conditions</span>}
-                </div>
-
-                {/* Allergies */}
-                {patient.allergies.length > 0 && (
-                  <div className="flex items-center gap-1.5 mb-3">
-                    <span className="text-xs text-amber-600 font-semibold">⚠️ Allergies:</span>
-                    <span className="text-xs text-amber-700">{patient.allergies.join(", ")}</span>
-                  </div>
-                )}
-
-                {/* Stats row */}
-                <div className="flex items-center justify-between text-xs text-gray-400">
-                  <span>Last visit: <span className="text-gray-600 font-medium">{patient.lastVisit}</span></span>
-                  <span>{patient.totalVisits} visit{patient.totalVisits > 1 ? "s" : ""}</span>
-                </div>
-              </div>
-
-              {/* Hover footer */}
-              <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-                <span className="text-xs text-gray-400">{patient.phone}</span>
-                <span className="text-xs font-semibold text-blue-600 group-hover:underline">View Records →</span>
-              </div>
-            </div>
-          ))}
-
-          {filtered.length === 0 && (
-            <div className="col-span-3 bg-white rounded-2xl border border-gray-100 p-12 text-center">
-              <div className="text-4xl mb-3">👤</div>
-              <div className="text-gray-500 font-medium">No patients found</div>
-            </div>
-          )}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </DoctorLayout>
   );

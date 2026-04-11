@@ -297,7 +297,7 @@ export default function Register() {
           {/* Step 2 – Medical Info */}
           {step === 2 && (
             <div className="space-y-4">
-              <SelectField label="Blood Group" name="bloodGroup" options={['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−', 'Unknown']} value={formData.bloodGroup} onChange={handleChange} required={false} />
+              <SelectField label="Blood Group" name="bloodGroup" options={['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Unknown']} value={formData.bloodGroup} onChange={handleChange} required={false} />
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1.5">Known Allergies</label>
                 <textarea

@@ -1,17 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import axios from "axios";
 
-// Font import via style injection
 const fontStyle = document.createElement("link");
 fontStyle.rel = "stylesheet";
 fontStyle.href = "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap";
 document.head.appendChild(fontStyle);
 
+const API = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
+
 const NAV_LINKS = [
-  { label: "Home", href: "#home" },
-  { label: "About", href: "#about" },
-  { label: "Services", href: "#services" },
-  { label: "Our Doctor", href: "#doctor" },
-  { label: "Contact", href: "#contact" },
+  { label: "Home",       href: "#home"     },
+  { label: "About",      href: "#about"    },
+  { label: "Services",   href: "#services" },
+  { label: "Our Doctor", href: "#doctor"   },
+  { label: "Contact",    href: "#contact"  },
 ];
 
 const SERVICES = [
@@ -59,39 +61,162 @@ const SERVICES = [
 
 const STATS = [
   { number: "5000+", label: "Patients Treated" },
-  { number: "15+", label: "Years of Experience" },
-  { number: "98%", label: "Patient Satisfaction" },
-  { number: "24/7", label: "Emergency Support" },
+  { number: "15+",   label: "Years of Experience" },
+  { number: "98%",   label: "Patient Satisfaction" },
+  { number: "24/7",  label: "Emergency Support" },
 ];
 
-export default function Index() {
-  const [scrolled, setScrolled] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState("home");
+// ── Slideshow slides ──────────────────────────────────────────
+const SLIDES = [
+  {
+    emoji: "🏥",
+    title: "Your Health Records, Always With You",
+    desc: "Access your prescriptions, lab results, and appointment history anytime — all in one secure place.",
+    cta: "Create Your Account",
+    bg: "rgba(255,255,255,0.08)",
+    border: "1px solid rgba(255,255,255,0.15)",
+  },
+  {
+    emoji: "💊",
+    title: "Digital Prescriptions Sent Instantly",
+    desc: "No more paper prescriptions. Your doctor sends them directly to the pharmacy — ready when you arrive.",
+    cta: "Sign Up Free",
+    bg: "rgba(255,255,255,0.08)",
+    border: "1px solid rgba(255,255,255,0.15)",
+  },
+  {
+    emoji: "🧪",
+    title: "Lab Results in Your Pocket",
+    desc: "Get notified the moment your lab results are ready. View detailed reports from your phone or computer.",
+    cta: "Get Started Today",
+    bg: "rgba(255,255,255,0.08)",
+    border: "1px solid rgba(255,255,255,0.15)",
+  },
+  {
+    emoji: "📅",
+    title: "Book Appointments in Seconds",
+    desc: "Skip the phone queue. Book, reschedule, or cancel appointments online — whenever it suits you.",
+    cta: "Register Now",
+    bg: "rgba(255,255,255,0.08)",
+    border: "1px solid rgba(255,255,255,0.15)",
+  },
+];
+
+function Slideshow({ dark = false }) {
+  const [current, setCurrent] = useState(0);
+  const timerRef = useRef(null);
+
+  const go = (idx) => setCurrent((idx + SLIDES.length) % SLIDES.length);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 50);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    timerRef.current = setInterval(() => setCurrent(c => (c + 1) % SLIDES.length), 4500);
+    return () => clearInterval(timerRef.current);
   }, []);
+
+  const slide = SLIDES[current];
+
+  return (
+    <div>
+      {/* Slide card */}
+      <div
+        key={current}
+        className="rounded-3xl p-8 relative overflow-hidden shadow-2xl"
+        style={{ background: slide.bg, border: slide.border, minHeight: 240, backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }}
+      >
+        <div className="absolute right-0 top-0 bottom-0 w-48 opacity-10 pointer-events-none">
+          <svg viewBox="0 0 200 300" fill="white"><circle cx="180" cy="80" r="120"/><circle cx="50" cy="250" r="80"/></svg>
+        </div>
+        <div className="relative flex items-start gap-5">
+          <div className="text-5xl flex-shrink-0 select-none mt-1">{slide.emoji}</div>
+          <div className="flex-1">
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "1.15rem", color: "white", lineHeight: 1.3 }}>
+              {slide.title}
+            </h3>
+            <p className="mt-2 text-white/75 leading-relaxed text-sm">{slide.desc}</p>
+            <a
+              href="/register"
+              className="inline-flex items-center gap-2 mt-5 px-5 py-2.5 rounded-xl font-semibold text-sm shadow-lg transition-all hover:scale-105"
+              style={{ background: "white", color: "#0D2137" }}
+            >
+              {slide.cta}
+              <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* Dots + arrows */}
+      <div className="flex items-center justify-center gap-4 mt-5">
+        <button onClick={() => go(current - 1)}
+          className="w-8 h-8 rounded-full flex items-center justify-center transition"
+          style={{ background: dark ? "rgba(255,255,255,0.1)" : "white", border: dark ? "1px solid rgba(255,255,255,0.2)" : "1px solid #e5e7eb" }}>
+          <svg viewBox="0 0 20 20" fill={dark ? "white" : "#6B7280"} className="w-4 h-4">
+            <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd"/>
+          </svg>
+        </button>
+        <div className="flex gap-2">
+          {SLIDES.map((_, i) => (
+            <button key={i} onClick={() => go(i)}
+              className="rounded-full transition-all duration-300"
+              style={{
+                width: i === current ? 28 : 8,
+                height: 8,
+                background: i === current ? (dark ? "white" : "#1565C0") : (dark ? "rgba(255,255,255,0.3)" : "#CBD5E1"),
+              }}
+            />
+          ))}
+        </div>
+        <button onClick={() => go(current + 1)}
+          className="w-8 h-8 rounded-full flex items-center justify-center transition"
+          style={{ background: dark ? "rgba(255,255,255,0.1)" : "white", border: dark ? "1px solid rgba(255,255,255,0.2)" : "1px solid #e5e7eb" }}>
+          <svg viewBox="0 0 20 20" fill={dark ? "white" : "#6B7280"} className="w-4 h-4">
+            <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"/>
+          </svg>
+        </button>
+      </div>
+
+      <p className="text-center mt-4 text-xs" style={{ color: dark ? "rgba(255,255,255,0.4)" : "#9CA3AF" }}>
+        Already have an account? <a href="/login" className="underline hover:opacity-80" style={{ color: dark ? "rgba(255,255,255,0.7)" : "#1565C0" }}>Login here</a>
+      </p>
+    </div>
+  );
+}
+
+export default function Index() {
+  const [scrolled, setScrolled]   = useState(false);
+  const [menuOpen, setMenuOpen]   = useState(false);
+  const [doctor, setDoctor]       = useState(null);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 50);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Fetch live doctor data
+  useEffect(() => {
+    axios.get(`${API}/public/doctor`)
+      .then(res => { if (res.data.doctor) setDoctor(res.data.doctor); })
+      .catch(() => {}); // silently fall back to static data
+  }, []);
+
+  const doctorName = doctor?.name || "Dr. M.T.D. Jayaweera";
+  const doctorExp  = doctor?.doctorDetails?.workingExperience || "15+";
+  const doctorPhone = doctor?.telephone || "0777 883 343";
+  const doctorPhoto = doctor?.photo || null;
 
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif" }} className="bg-white text-gray-800">
+
       {/* ── NAVBAR ── */}
-      <nav
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-          scrolled ? "bg-white shadow-lg py-3" : "bg-transparent py-5"
-        }`}
-      >
+      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? "bg-white shadow-lg py-3" : "bg-transparent py-5"}`}>
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
-          {/* Logo */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}>
-              <svg viewBox="0 0 24 24" fill="white" className="w-6 h-6">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
-                <path d="M11 4h2v3h3v2h-3v3h-2V9H8V7h3z" fill="white"/>
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" className="w-5 h-5">
+                <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0016.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 002 8.5c0 2.3 1.5 4.05 3 5.5l7 7z"/>
               </svg>
             </div>
             <div>
@@ -104,163 +229,115 @@ export default function Index() {
             </div>
           </div>
 
-          {/* Desktop Links */}
           <div className="hidden md:flex items-center gap-8">
-            {NAV_LINKS.map((link) => (
-              <a
-                key={link.label}
-                href={link.href}
+            {NAV_LINKS.map(link => (
+              <a key={link.label} href={link.href}
                 className="text-sm font-medium transition-colors duration-200 hover:opacity-80"
-                style={{ color: scrolled ? "#0D2137" : "white" }}
-              >
+                style={{ color: scrolled ? "#0D2137" : "white" }}>
                 {link.label}
               </a>
             ))}
           </div>
 
-          {/* CTA Button */}
           <div className="hidden md:flex items-center gap-3">
-            <a
-              href="/login"
+            <a href="/login"
               className="text-sm font-medium px-4 py-2 rounded-lg border transition-all duration-200"
-              style={{
-                borderColor: scrolled ? "#1565C0" : "rgba(255,255,255,0.6)",
-                color: scrolled ? "#1565C0" : "white",
-              }}
-            >
+              style={{ borderColor: scrolled ? "#1565C0" : "rgba(255,255,255,0.6)", color: scrolled ? "#1565C0" : "white" }}>
               Login
             </a>
-            <a
-              href="#contact"
+            <a href="/register"
               className="text-sm font-semibold px-5 py-2.5 rounded-lg text-white shadow-lg transition-transform duration-200 hover:scale-105"
-              style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}
-            >
+              style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}>
               Book Appointment
             </a>
           </div>
 
-          {/* Mobile Menu Toggle */}
-          <button
-            className="md:hidden p-2"
-            onClick={() => setMenuOpen(!menuOpen)}
-          >
-            <div className={`w-6 h-0.5 mb-1.5 transition-all ${scrolled ? "bg-gray-800" : "bg-white"}`} />
-            <div className={`w-6 h-0.5 mb-1.5 transition-all ${scrolled ? "bg-gray-800" : "bg-white"}`} />
-            <div className={`w-6 h-0.5 transition-all ${scrolled ? "bg-gray-800" : "bg-white"}`} />
+          <button className="md:hidden p-2" onClick={() => setMenuOpen(!menuOpen)}>
+            <div className={`w-6 h-0.5 mb-1.5 transition-all ${scrolled ? "bg-gray-800" : "bg-white"}`}/>
+            <div className={`w-6 h-0.5 mb-1.5 transition-all ${scrolled ? "bg-gray-800" : "bg-white"}`}/>
+            <div className={`w-6 h-0.5 transition-all ${scrolled ? "bg-gray-800" : "bg-white"}`}/>
           </button>
         </div>
 
-        {/* Mobile Menu */}
         {menuOpen && (
           <div className="md:hidden bg-white shadow-xl px-6 py-4 mt-2">
-            {NAV_LINKS.map((link) => (
-              <a key={link.label} href={link.href} className="block py-2.5 text-gray-700 font-medium border-b border-gray-100 text-sm">
-                {link.label}
-              </a>
+            {NAV_LINKS.map(link => (
+              <a key={link.label} href={link.href} className="block py-2.5 text-gray-700 font-medium border-b border-gray-100 text-sm">{link.label}</a>
             ))}
-            <a href="#contact" className="block mt-3 text-center py-2.5 rounded-lg text-white text-sm font-semibold" style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}>
+            <a href="/register" className="block mt-3 text-center py-2.5 rounded-lg text-white text-sm font-semibold" style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}>
               Book Appointment
             </a>
           </div>
         )}
       </nav>
 
-      {/* ── HERO SECTION ── */}
-      <section
-        id="home"
-        className="relative min-h-screen flex items-center overflow-hidden"
-        style={{
-          background: "linear-gradient(135deg, #0D2137 0%, #1565C0 50%, #00ACC1 100%)",
-        }}
-      >
-        {/* Background pattern */}
+      {/* ── HERO ── */}
+      <section id="home" className="relative min-h-screen flex items-center overflow-hidden"
+        style={{ background: "linear-gradient(135deg, #0D2137 0%, #1565C0 50%, #00ACC1 100%)" }}>
         <div className="absolute inset-0 opacity-10">
           <svg width="100%" height="100%">
-            <defs>
-              <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
-                <path d="M 60 0 L 0 0 0 60" fill="none" stroke="white" strokeWidth="0.5" />
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#grid)" />
+            <defs><pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+              <path d="M 60 0 L 0 0 0 60" fill="none" stroke="white" strokeWidth="0.5"/>
+            </pattern></defs>
+            <rect width="100%" height="100%" fill="url(#grid)"/>
           </svg>
         </div>
-
-        {/* Decorative circles */}
-        <div className="absolute top-20 right-10 w-96 h-96 rounded-full opacity-10" style={{ background: "radial-gradient(circle, #00ACC1, transparent)" }} />
-        <div className="absolute bottom-0 left-20 w-64 h-64 rounded-full opacity-10" style={{ background: "radial-gradient(circle, white, transparent)" }} />
+        <div className="absolute top-20 right-10 w-96 h-96 rounded-full opacity-10" style={{ background: "radial-gradient(circle, #00ACC1, transparent)" }}/>
+        <div className="absolute bottom-0 left-20 w-64 h-64 rounded-full opacity-10" style={{ background: "radial-gradient(circle, white, transparent)" }}/>
 
         <div className="relative max-w-7xl mx-auto px-6 py-32 grid md:grid-cols-2 gap-16 items-center">
-          {/* Left Content */}
           <div>
             <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2 mb-6">
-              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"/>
               <span className="text-white/90 text-sm font-medium">Currently Accepting Patients</span>
             </div>
-
             <h1 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, fontSize: "clamp(2.2rem, 5vw, 3.8rem)", lineHeight: 1.15, color: "white" }}>
-              Your Health, Our
-              <br />
-              <span style={{ color: "#7DD3FC" }}>Sacred Commitment</span>
+              Your Health, Our<br/><span style={{ color: "#7DD3FC" }}>Sacred Commitment</span>
             </h1>
-
             <p className="mt-6 text-white/80 text-lg leading-relaxed max-w-md">
               Delivering compassionate, comprehensive healthcare with a personal touch. Experience trusted medical care for your entire family at People's Health Care.
             </p>
-
             <div className="mt-8 flex flex-wrap gap-4">
-              <a
-                href="#contact"
-                className="flex items-center gap-2 px-7 py-3.5 rounded-xl text-white font-semibold shadow-2xl transition-all duration-300 hover:scale-105 hover:shadow-cyan-400/30"
-                style={{ background: "linear-gradient(135deg, #00ACC1, #007bff)" }}
-              >
+              <a href="/register"
+                className="flex items-center gap-2 px-7 py-3.5 rounded-xl text-white font-semibold shadow-2xl transition-all duration-300 hover:scale-105"
+                style={{ background: "linear-gradient(135deg, #00ACC1, #007bff)" }}>
                 <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"/>
                 </svg>
                 Book Appointment
               </a>
-              <a
-                href="#services"
-                className="flex items-center gap-2 px-7 py-3.5 rounded-xl font-semibold border-2 border-white/40 text-white transition-all duration-300 hover:bg-white/10"
-              >
+              <a href="#services"
+                className="flex items-center gap-2 px-7 py-3.5 rounded-xl font-semibold border-2 border-white/40 text-white transition-all duration-300 hover:bg-white/10">
                 Explore Services
                 <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                  <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd"/>
                 </svg>
               </a>
             </div>
-
-            {/* Quick info badges */}
             <div className="mt-10 flex flex-wrap gap-3">
-              {["Mon – Sat: 8AM – 7PM", "Emergency: 24/7", "Matara, Sri Lanka"].map((item) => (
+              {["Mon – Sat: 7AM – 7:45AM 4:30PM - 8PM", "Emergency: 24/7", "Matara, Sri Lanka"].map(item => (
                 <div key={item} className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-cyan-300" />
+                  <div className="w-1.5 h-1.5 rounded-full bg-cyan-300"/>
                   <span className="text-white/80 text-xs">{item}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Right – Stats card */}
           <div className="hidden md:block">
             <div className="relative">
-              {/* Main card */}
               <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-8 shadow-2xl">
                 <div className="grid grid-cols-2 gap-6">
-                  {STATS.map((stat) => (
+                  {STATS.map(stat => (
                     <div key={stat.label} className="text-center p-4 bg-white/10 rounded-2xl border border-white/10">
-                      <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, fontSize: "2rem", color: "#7DD3FC" }}>
-                        {stat.number}
-                      </div>
+                      <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, fontSize: "2rem", color: "#7DD3FC" }}>{stat.number}</div>
                       <div className="text-white/70 text-sm mt-1">{stat.label}</div>
                     </div>
                   ))}
                 </div>
-
                 <div className="mt-6 p-4 bg-white/10 rounded-2xl border border-white/10 flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #00ACC1, #1565C0)" }}>
-                    <svg viewBox="0 0 24 24" fill="white" className="w-6 h-6">
-                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                    </svg>
+                    <svg viewBox="0 0 24 24" fill="white" className="w-6 h-6"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
                   </div>
                   <div>
                     <div className="text-white font-semibold text-sm">People's Health Care</div>
@@ -268,20 +345,16 @@ export default function Index() {
                   </div>
                 </div>
               </div>
-
-              {/* Floating badge */}
               <div className="absolute -top-4 -right-4 bg-green-400 text-green-900 text-xs font-bold px-4 py-2 rounded-full shadow-lg flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-green-700 animate-pulse" />
-                Open Now
+                <div className="w-2 h-2 rounded-full bg-green-700 animate-pulse"/>Open Now
               </div>
             </div>
           </div>
         </div>
 
-        {/* Wave bottom */}
         <div className="absolute bottom-0 left-0 right-0">
           <svg viewBox="0 0 1440 80" fill="white" preserveAspectRatio="none" className="w-full h-16">
-            <path d="M0,40 C240,80 480,0 720,40 C960,80 1200,0 1440,40 L1440,80 L0,80 Z" />
+            <path d="M0,40 C240,80 480,0 720,40 C960,80 1200,0 1440,40 L1440,80 L0,80 Z"/>
           </svg>
         </div>
       </section>
@@ -290,52 +363,22 @@ export default function Index() {
       <section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
-            <p className="text-sm font-semibold tracking-widest uppercase mb-3" style={{ color: "#00ACC1" }}>
-              Why Choose Us
-            </p>
+            <p className="text-sm font-semibold tracking-widest uppercase mb-3" style={{ color: "#00ACC1" }}>Why Choose Us</p>
             <h2 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "clamp(1.8rem, 3vw, 2.8rem)", color: "#0D2137" }}>
               Healthcare Built on Trust & Excellence
             </h2>
-            <div className="w-16 h-1 mx-auto mt-4 rounded-full" style={{ background: "linear-gradient(90deg, #1565C0, #00ACC1)" }} />
+            <div className="w-16 h-1 mx-auto mt-4 rounded-full" style={{ background: "linear-gradient(90deg, #1565C0, #00ACC1)" }}/>
           </div>
-
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              {
-                icon: "🏥",
-                title: "Integrated Care",
-                desc: "From consultation to prescription and lab testing — everything happens seamlessly under one roof.",
-              },
-              {
-                icon: "👨‍⚕️",
-                title: "Expert Physician",
-                desc: "Benefit from the experience and dedication of Dr. M.T.D. Jayaweera, who personally oversees every aspect of your care.",
-              },
-              {
-                icon: "🔬",
-                title: "Advanced Diagnostics",
-                desc: "State-of-the-art laboratory and ECG facilities ensuring accurate and timely diagnostic results.",
-              },
-              {
-                icon: "💊",
-                title: "In-House Pharmacy",
-                desc: "Get your prescriptions filled immediately without the hassle of visiting an external pharmacy.",
-              },
-              {
-                icon: "📋",
-                title: "Complete Health Records",
-                desc: "Your medical history, test results, and prescriptions are securely maintained and easily accessible.",
-              },
-              {
-                icon: "⚡",
-                title: "Fast & Efficient",
-                desc: "Streamlined processes minimize your waiting time so you can focus on what matters — your recovery.",
-              },
-            ].map((item) => (
-              <div
-                key={item.title}
-                className="group p-6 rounded-2xl border border-gray-100 hover:border-blue-100 hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
-              >
+              { icon: "🏥", title: "Integrated Care",         desc: "From consultation to prescription and lab testing — everything happens seamlessly under one roof." },
+              { icon: "👨‍⚕️", title: "Expert Physician",      desc: "Benefit from the experience and dedication of Dr. M.T.D. Jayaweera, who personally oversees every aspect of your care." },
+              { icon: "🔬", title: "Advanced Diagnostics",    desc: "State-of-the-art laboratory and ECG facilities ensuring accurate and timely diagnostic results." },
+              { icon: "💊", title: "In-House Pharmacy",       desc: "Get your prescriptions filled immediately without the hassle of visiting an external pharmacy." },
+              { icon: "📋", title: "Complete Health Records", desc: "Your medical history, test results, and prescriptions are securely maintained and easily accessible." },
+              { icon: "⚡", title: "Fast & Efficient",        desc: "Streamlined processes minimize your waiting time so you can focus on what matters — your recovery." },
+            ].map(item => (
+              <div key={item.title} className="group p-6 rounded-2xl border border-gray-100 hover:border-blue-100 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                 <div className="text-3xl mb-4">{item.icon}</div>
                 <h3 className="font-semibold text-lg mb-2" style={{ color: "#0D2137" }}>{item.title}</h3>
                 <p className="text-gray-500 text-sm leading-relaxed">{item.desc}</p>
@@ -349,36 +392,25 @@ export default function Index() {
       <section id="services" className="py-24" style={{ background: "linear-gradient(180deg, #F0F7FF 0%, #E3F2FD 100%)" }}>
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
-            <p className="text-sm font-semibold tracking-widest uppercase mb-3" style={{ color: "#00ACC1" }}>
-              Our Services
-            </p>
+            <p className="text-sm font-semibold tracking-widest uppercase mb-3" style={{ color: "#00ACC1" }}>Our Services</p>
             <h2 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "clamp(1.8rem, 3vw, 2.8rem)", color: "#0D2137" }}>
               Comprehensive Medical Services
             </h2>
-            <div className="w-16 h-1 mx-auto mt-4 rounded-full" style={{ background: "linear-gradient(90deg, #1565C0, #00ACC1)" }} />
+            <div className="w-16 h-1 mx-auto mt-4 rounded-full" style={{ background: "linear-gradient(90deg, #1565C0, #00ACC1)" }}/>
           </div>
-
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {SERVICES.map((service) => (
-              <div
-                key={service.title}
-                className="group bg-white rounded-2xl p-6 shadow-sm hover:shadow-2xl transition-all duration-400 hover:-translate-y-2 cursor-pointer"
-              >
-                <div
-                  className="w-14 h-14 rounded-xl flex items-center justify-center mb-5 transition-transform duration-300 group-hover:scale-110"
-                  style={{ background: `${service.color}18`, color: service.color }}
-                >
+            {SERVICES.map(service => (
+              <div key={service.title} className="group bg-white rounded-2xl p-6 shadow-sm hover:shadow-2xl transition-all duration-400 hover:-translate-y-2 cursor-pointer">
+                <div className="w-14 h-14 rounded-xl flex items-center justify-center mb-5 transition-transform duration-300 group-hover:scale-110"
+                  style={{ background: `${service.color}18`, color: service.color }}>
                   {service.icon}
                 </div>
                 <h3 className="font-semibold text-base mb-3" style={{ color: "#0D2137" }}>{service.title}</h3>
                 <p className="text-gray-500 text-sm leading-relaxed">{service.desc}</p>
-                <div
-                  className="mt-4 text-sm font-semibold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                  style={{ color: service.color }}
-                >
+                <div className="mt-4 text-sm font-semibold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ color: service.color }}>
                   Learn more
                   <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                    <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                    <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd"/>
                   </svg>
                 </div>
               </div>
@@ -387,88 +419,75 @@ export default function Index() {
         </div>
       </section>
 
-      {/* ── ABOUT / DOCTOR ── */}
-      <section id="doctor" className="py-24 bg-white">
+      {/* ── DOCTOR / ABOUT ── */}
+      <section id="doctor" className="py-24 bg-white" style={{ scrollMarginTop: 80 }}>
         <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-16 items-center">
-          {/* Left – Doctor card */}
+          {/* Doctor card — live data */}
           <div className="relative">
             <div className="rounded-3xl overflow-hidden shadow-2xl" style={{ background: "linear-gradient(135deg, #0D2137, #1565C0)" }}>
               <div className="p-10 text-white text-center">
-                <div
-                  className="w-32 h-32 rounded-full mx-auto mb-6 border-4 border-white/30 flex items-center justify-center text-6xl"
-                  style={{ background: "rgba(255,255,255,0.15)" }}
-                >
-                  👨‍⚕️
+                <div className="w-32 h-32 rounded-full mx-auto mb-6 border-4 border-white/30 flex items-center justify-center overflow-hidden"
+                  style={{ background: "rgba(255,255,255,0.15)" }}>
+                  {doctorPhoto
+                    ? <img src={doctorPhoto} alt={doctorName} className="w-full h-full object-cover"/>
+                    : <span className="text-6xl">👨‍⚕️</span>
+                  }
                 </div>
-                <h3 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "1.6rem" }}>
-                  Dr. M.T.D. Jayaweera
-                </h3>
+                <h3 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "1.6rem" }}>{doctorName}</h3>
                 <p className="text-blue-200 mt-1 text-sm">Founder & Chief Physician</p>
                 <p className="text-blue-200 mt-0.5 text-xs">People's Health Care, Matara</p>
-
                 <div className="mt-6 grid grid-cols-3 gap-4">
-                  {[
-                    { n: "15+", l: "Years Exp." },
-                    { n: "5K+", l: "Patients" },
-                    { n: "98%", l: "Satisfaction" },
-                  ].map((s) => (
+                  {[{ n: doctorExp.includes("+") ? doctorExp : `${doctorExp}+`, l: "Years Exp." }, { n: "5K+", l: "Patients" }, { n: "98%", l: "Satisfaction" }].map(s => (
                     <div key={s.l} className="bg-white/10 rounded-xl p-3">
                       <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "1.3rem", color: "#7DD3FC" }}>{s.n}</div>
                       <div className="text-white/60 text-xs mt-0.5">{s.l}</div>
                     </div>
                   ))}
                 </div>
-
                 <div className="mt-6 space-y-2 text-left">
-                  {["General Medicine", "Preventive Healthcare", "Chronic Disease Management", "Family Health"].map((spec) => (
+                  {["General Medicine", "Preventive Healthcare", "Chronic Disease Management", "Family Health"].map(spec => (
                     <div key={spec} className="flex items-center gap-2 text-sm text-white/80">
-                      <div className="w-1.5 h-1.5 rounded-full bg-cyan-300" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-cyan-300"/>
                       {spec}
                     </div>
                   ))}
                 </div>
               </div>
             </div>
-
-            {/* Contact badge */}
             <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-white shadow-xl rounded-2xl px-6 py-3 flex items-center gap-3 whitespace-nowrap">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "#E3F2FD" }}>
                 <svg viewBox="0 0 20 20" fill="#1565C0" className="w-5 h-5">
-                  <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+                  <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/>
                 </svg>
               </div>
               <div>
-                <div className="text-xs text-gray-400">Call for Appointment</div>
-                <div className="text-sm font-bold text-gray-800">0777 883 343</div>
+                <div className="text-xs text-gray-400">Call for Emergencies</div>
+                <div className="text-sm font-bold text-gray-800">{doctorPhone}</div>
               </div>
             </div>
           </div>
 
-          {/* Right – About text */}
-          <div className="pt-6">
-            <p className="text-sm font-semibold tracking-widest uppercase mb-3" style={{ color: "#00ACC1" }}>
-              About Our Medical Centre
-            </p>
+          {/* About text */}
+          <div className="pt-6" id="about">
+            <p className="text-sm font-semibold tracking-widest uppercase mb-3" style={{ color: "#00ACC1" }}>About Our Medical Centre</p>
             <h2 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "clamp(1.6rem, 2.5vw, 2.4rem)", color: "#0D2137", lineHeight: 1.3 }}>
               A Legacy of Compassionate Healthcare
             </h2>
-            <div className="w-12 h-1 mt-4 mb-6 rounded-full" style={{ background: "linear-gradient(90deg, #1565C0, #00ACC1)" }} />
-
+            <div className="w-12 h-1 mt-4 mb-6 rounded-full" style={{ background: "linear-gradient(90deg, #1565C0, #00ACC1)" }}/>
             <p className="text-gray-600 leading-relaxed mb-4">
               People's Health Care is a patient-first medical centre established in Matara, dedicated to delivering comprehensive, high-quality medical services to the community of Southern Sri Lanka.
             </p>
             <p className="text-gray-600 leading-relaxed mb-6">
               Under the personal guidance of Dr. M.T.D. Jayaweera, our centre integrates primary care consultations, pharmaceutical services, and advanced diagnostic testing — all designed to provide you with seamless, coordinated healthcare from a single trusted source.
             </p>
-
             <div className="space-y-4">
               {[
                 { label: "Consultation Hours", value: "Mon – Sat: 8:00 AM – 7:00 PM" },
-                { label: "Location", value: "Matara, Southern Province, Sri Lanka" },
-                { label: "Contact", value: "thilakjayaweera9@gmail.com" },
-              ].map((item) => (
+                { label: "Location",           value: "Matara, Southern Province, Sri Lanka" },
+                { label: "Contact",            value: "thilakjayaweera9@gmail.com" },
+              ].map(item => (
                 <div key={item.label} className="flex items-start gap-3">
-                  <div className="w-2 h-2 rounded-full mt-2 flex-shrink-0" style={{ background: "#00ACC1" }} />
+                  <div className="w-2 h-2 rounded-full mt-2 flex-shrink-0" style={{ background: "#00ACC1" }}/>
                   <div>
                     <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{item.label}: </span>
                     <span className="text-gray-700 text-sm">{item.value}</span>
@@ -476,20 +495,15 @@ export default function Index() {
                 </div>
               ))}
             </div>
-
             <div className="mt-8 flex gap-4">
-              <a
-                href="#contact"
+              <a href="/register"
                 className="px-6 py-3 rounded-xl text-white text-sm font-semibold shadow-lg transition-transform hover:scale-105"
-                style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}
-              >
+                style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}>
                 Book an Appointment
               </a>
-              <a
-                href="tel:0777883343"
+              <a href={`tel:${doctorPhone.replace(/\s/g,"")}`}
                 className="px-6 py-3 rounded-xl text-sm font-semibold border-2 transition-colors hover:bg-blue-50"
-                style={{ borderColor: "#1565C0", color: "#1565C0" }}
-              >
+                style={{ borderColor: "#1565C0", color: "#1565C0" }}>
                 Call Now
               </a>
             </div>
@@ -498,47 +512,35 @@ export default function Index() {
       </section>
 
       {/* ── CONTACT / APPOINTMENT ── */}
-      <section
-        id="contact"
-        className="py-24 relative overflow-hidden"
-        style={{ background: "linear-gradient(135deg, #0D2137 0%, #1565C0 100%)" }}
-      >
+      <section id="contact" className="py-24 relative overflow-hidden"
+        style={{ background: "linear-gradient(135deg, #0D2137 0%, #1565C0 100%)" }}>
         <div className="absolute inset-0 opacity-5">
           <svg width="100%" height="100%">
-            <defs>
-              <pattern id="dots" width="30" height="30" patternUnits="userSpaceOnUse">
-                <circle cx="15" cy="15" r="1.5" fill="white" />
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#dots)" />
+            <defs><pattern id="dots" width="30" height="30" patternUnits="userSpaceOnUse">
+              <circle cx="15" cy="15" r="1.5" fill="white"/>
+            </pattern></defs>
+            <rect width="100%" height="100%" fill="url(#dots)"/>
           </svg>
         </div>
-
         <div className="relative max-w-7xl mx-auto px-6">
           <div className="grid md:grid-cols-2 gap-16 items-start">
-            {/* Left */}
             <div>
-              <p className="text-sm font-semibold tracking-widest uppercase mb-3" style={{ color: "#7DD3FC" }}>
-                Get In Touch
-              </p>
+              <p className="text-sm font-semibold tracking-widest uppercase mb-3" style={{ color: "#7DD3FC" }}>Get In Touch</p>
               <h2 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "clamp(1.8rem, 3vw, 2.6rem)", color: "white" }}>
                 Book Your Appointment Today
               </h2>
               <p className="mt-4 text-white/70 leading-relaxed">
                 Contact us to schedule a consultation. Our staff will confirm your appointment and provide all necessary information.
               </p>
-
               <div className="mt-8 space-y-5">
                 {[
                   { icon: "📍", label: "Address", value: "People's Health Care, Matara, Sri Lanka" },
-                  { icon: "📞", label: "Phone", value: "0777 883 343" },
-                  { icon: "📧", label: "Email", value: "thilakjayaweera9@gmail.com" },
-                  { icon: "🕐", label: "Hours", value: "Mon – Sat: 8:00 AM – 7:00 PM" },
-                ].map((item) => (
+                  { icon: "📞", label: "Phone",   value: doctorPhone },
+                  { icon: "📧", label: "Email",   value: "thilakjayaweera9@gmail.com" },
+                  { icon: "🕐", label: "Hours",   value: "Mon – Sat: 8:00 AM – 7:00 PM" },
+                ].map(item => (
                   <div key={item.label} className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-lg flex-shrink-0">
-                      {item.icon}
-                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-lg flex-shrink-0">{item.icon}</div>
                     <div>
                       <div className="text-white/50 text-xs uppercase tracking-wide font-medium">{item.label}</div>
                       <div className="text-white font-medium text-sm mt-0.5">{item.value}</div>
@@ -548,51 +550,10 @@ export default function Index() {
               </div>
             </div>
 
-            {/* Right – Contact form */}
-            <div className="bg-white rounded-3xl p-8 shadow-2xl">
-              <h3 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "1.4rem", color: "#0D2137" }}>
-                Request an Appointment
-              </h3>
-              <p className="text-gray-500 text-sm mt-1 mb-6">Fill in your details and we'll be in touch shortly.</p>
-
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">First Name</label>
-                    <input type="text" placeholder="Kamal" className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Last Name</label>
-                    <input type="text" placeholder="Perera" className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Phone Number</label>
-                  <input type="tel" placeholder="07X XXX XXXX" className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Preferred Date</label>
-                  <input type="date" className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Reason for Visit</label>
-                  <textarea
-                    placeholder="Briefly describe your concern..."
-                    rows={3}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition resize-none"
-                  />
-                </div>
-
-                <button
-                  className="w-full py-3.5 rounded-xl text-white font-semibold text-sm shadow-lg transition-all duration-200 hover:scale-[1.02] hover:shadow-blue-300/40"
-                  style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}
-                >
-                  Submit Request
-                </button>
-              </div>
+            {/* Right — Slideshow inside contact section */}
+            <div>
+              <p className="text-sm font-semibold tracking-widest uppercase mb-4" style={{ color: "#7DD3FC" }}>Why Join Us</p>
+              <Slideshow dark />
             </div>
           </div>
         </div>
@@ -610,17 +571,29 @@ export default function Index() {
                 Providing compassionate, integrated healthcare services to the community of Matara and beyond.
               </p>
               <div className="mt-4 flex gap-3">
-                {["📘", "🐦", "📸"].map((icon, i) => (
-                  <div key={i} className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center cursor-pointer hover:bg-white/20 transition text-sm">
-                    {icon}
-                  </div>
+                {[
+                  { icon: "f", label: "Facebook",  href: "#" },
+                  { icon: "𝕏", label: "Twitter",   href: "#" },
+                  { icon: "in", label: "Instagram", href: "#" },
+                ].map((s) => (
+                  <a key={s.label} href={s.href} title={s.label}
+                    className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center cursor-pointer hover:bg-white/20 transition text-xs font-bold text-white/60 hover:text-white">
+                    {s.icon}
+                  </a>
                 ))}
               </div>
             </div>
 
             <div>
               <div className="text-white font-semibold mb-4 text-sm">Quick Links</div>
-              {NAV_LINKS.map((link) => (
+              {[
+                { label: "Home",        href: "#home"     },
+                { label: "About",        href: "#about"    },
+                { label: "Services",    href: "#services" },
+                { label: "Our Doctor", href: "#doctor"   },
+                { label: "Contact",     href: "#contact"  },
+                { label: "Login",       href: "/login"    },
+              ].map(link => (
                 <a key={link.label} href={link.href} className="block text-sm py-1 hover:text-white transition">{link.label}</a>
               ))}
             </div>
@@ -628,7 +601,7 @@ export default function Index() {
             <div>
               <div className="text-white font-semibold mb-4 text-sm">Contact</div>
               <div className="text-sm space-y-2">
-                <div>📞 0777 883 343</div>
+                <div>📞 {doctorPhone}</div>
                 <div>✉️ thilakjayaweera9@gmail.com</div>
                 <div>📍 Matara, Sri Lanka</div>
                 <div>🕐 Mon–Sat: 8AM–7PM</div>
@@ -641,7 +614,6 @@ export default function Index() {
             <div className="flex gap-4">
               <a href="#" className="hover:text-white transition">Privacy Policy</a>
               <a href="#" className="hover:text-white transition">Terms of Service</a>
-              <a href="/login" className="hover:text-white transition">Staff Portal</a>
             </div>
           </div>
         </div>

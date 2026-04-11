@@ -44,7 +44,7 @@ export default function Login() {
             navigate('/pharmacy/dashboard');
             break;
           case 'cashier':
-            navigate('/pharmacy/billing');
+            navigate('/cashier/dashboard');
             break;
           case 'admin':
             navigate('/admin/dashboard');

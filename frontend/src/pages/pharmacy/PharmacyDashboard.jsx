@@ -14,11 +14,6 @@ const LOW_STOCK = [
   { name: "Normal Saline 500ml", category: "IV Fluid", stock: 3, reorder: 15, unit: "bags", critical: true },
 ];
 
-const RECENT_SALES = [
-  { rxId: "RX-2026-0088", patient: "Suresh Jayasinghe", total: 1840, items: 3, time: "Yesterday, 3:20 PM" },
-  { rxId: "RX-2026-0087", patient: "Kumari Wijesinghe", total: 560, items: 1, time: "Yesterday, 2:45 PM" },
-  { rxId: "RX-2026-0086", patient: "Anura Dissanayake", total: 2150, items: 4, time: "Yesterday, 1:30 PM" },
-];
 
 const STATUS_CONFIG = {
   Pending:    { bg: "bg-amber-100",  text: "text-amber-700",  border: "border-amber-200",  bar: "#fbbf24", icon: "⏳" },
@@ -69,7 +64,7 @@ export default function PharmacyDashboard() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: "In Queue", value: QUEUE.filter(q => q.status !== "Dispensed").length, icon: "💊", color: "#2E7D32", bg: "#E8F5E9" },
-            { label: "Today's Revenue", value: "LKR 12,840", icon: "💰", color: "#1565C0", bg: "#E3F2FD" },
+            { label: "Dispensed Today", value: QUEUE.filter(q => q.status === "Dispensed").length, icon: "✅", color: "#1565C0", bg: "#E3F2FD" },
             { label: "Low Stock Alerts", value: LOW_STOCK.length, icon: "⚠️", color: "#E65100", bg: "#FFF3E0" },
             { label: "Total SKUs Tracked", value: "184", icon: "📦", color: "#37474F", bg: "#ECEFF1" },
           ].map((card) => (
@@ -156,7 +151,6 @@ export default function PharmacyDashboard() {
                 {[
                   { label: "View Dispensing Queue", href: "/pharmacy/queue", icon: "📋", color: "#2E7D32", bg: "#E8F5E9" },
                   { label: "Check Inventory", href: "/pharmacy/inventory", icon: "📦", color: "#1565C0", bg: "#E3F2FD" },
-                  { label: "Sales & Billing", href: "/pharmacy/billing", icon: "💳", color: "#37474F", bg: "#ECEFF1" },
                   { label: "Reorder Report", href: "/pharmacy/inventory", icon: "🔄", color: "#E65100", bg: "#FFF3E0" },
                 ].map((action) => (
                   <a key={action.label} href={action.href}
@@ -206,35 +200,6 @@ export default function PharmacyDashboard() {
                 })}
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Recent sales */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-            <div>
-              <h3 className="font-semibold text-gray-800">Recent Sales</h3>
-              <p className="text-xs text-gray-400 mt-0.5">Yesterday's completed dispensals</p>
-            </div>
-            <a href="/pharmacy/billing" className="text-sm font-medium text-green-700 hover:underline">View All Sales</a>
-          </div>
-          <div className="divide-y divide-gray-50">
-            {RECENT_SALES.map((sale) => (
-              <div key={sale.rxId} className="flex items-center gap-4 px-6 py-3.5 hover:bg-gray-50 transition">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-                  style={{ background: "linear-gradient(135deg, #2E7D32, #00897B)" }}>
-                  💊
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-gray-800">{sale.patient}</div>
-                  <div className="text-xs text-gray-400">{sale.rxId} · {sale.items} items · {sale.time}</div>
-                </div>
-                <div className="text-sm font-bold text-green-700 flex-shrink-0">LKR {sale.total.toLocaleString()}</div>
-                <span className="text-xs bg-green-100 text-green-700 font-semibold px-2.5 py-1 rounded-full border border-green-200 flex-shrink-0">
-                  ✅ Dispensed
-                </span>
-              </div>
-            ))}
           </div>
         </div>
 
