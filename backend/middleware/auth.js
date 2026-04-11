@@ -23,14 +23,6 @@ export const protect = async (req, res, next) => {
         return res.status(401).json({ success: false, message: 'User not found' });
       }
 
-      if (!req.user.isActive) {
-        return res.status(401).json({ success: false, message: 'Account is deactivated' });
-      }
-
-      if (req.user.deletedAt) {
-        return res.status(401).json({ success: false, message: 'Account has been deleted' });
-      }
-
       next();
     } catch (error) {
       console.error('Auth middleware error:', error.message);

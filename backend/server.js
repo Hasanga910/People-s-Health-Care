@@ -1,11 +1,21 @@
+import dns from 'node:dns';
+dns.setServers(['8.8.8.8', '8.8.4.4']);
+dns.setDefaultResultOrder('ipv4first');
+
+
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import connectDB from './config/db.js';
+import appointmentRoutes from './routes/appointments.js';
 
 // Import routes
-import authRoutes from './routes/auth.js';
-import userRoutes from './routes/users.js';
+import authRoutes         from './routes/auth.js';
+import userRoutes         from './routes/users.js';
+import patientRoutes      from './routes/patients.js';
+import prescriptionRoutes from './routes/Prescriptions.js';
+import labRequestRoutes   from './routes/labRequests.js';
+import publicRoutes       from './routes/public.js';
 
 // Load environment variables
 dotenv.config();
@@ -52,8 +62,13 @@ app.get('/', (req, res) => {
 });
 
 // API routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
+app.use('/api/auth',          authRoutes);
+app.use('/api/users',         userRoutes);
+app.use('/api/patients',      patientRoutes);
+app.use('/api/prescriptions', prescriptionRoutes);
+app.use('/api/lab-requests',  labRequestRoutes);
+app.use('/api/public',        publicRoutes);
+app.use('/api/appointments', appointmentRoutes);
 
 // 404 handler
 app.use((req, res) => {

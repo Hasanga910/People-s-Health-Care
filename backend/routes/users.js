@@ -1,5 +1,6 @@
 import express from 'express';
 import {
+  createStaff,
   getAllUsers,
   getUser,
   updateUser,
@@ -14,6 +15,8 @@ const router = express.Router();
 // All routes require authentication + admin role
 router.use(protect);
 router.use(authorize('admin'));
+
+router.post('/staff', createStaff);
 
 router.route('/')
   .get(getAllUsers);

@@ -1,3 +1,57 @@
+// ══════════════════════════════════════════════════════════════
+// @desc    Create new staff member (admin only)
+// @route   POST /api/users/staff
+// @access  Private/Admin
+// ══════════════════════════════════════════════════════════════
+export const createStaff = async (req, res) => {
+  try {
+    const { name, email, password, telephone, role, slmcRegisterNumber, medicalCenterRegisterNumber, workingExperience } = req.body;
+
+    const staffRoles = ['doctor', 'lab', 'pharmacy', 'cashier', 'admin'];
+    if (!staffRoles.includes(role))
+      return res.status(400).json({ success: false, message: 'Invalid role. Must be doctor, lab, pharmacy, cashier or admin' });
+    if (!name || !email || !password || !telephone)
+      return res.status(400).json({ success: false, message: 'Name, email, password and telephone are required' });
+
+    const existing = await User.findOne({ email });
+    if (existing)
+      return res.status(400).json({ success: false, message: 'A user with this email already exists' });
+
+    const userId = await User.generateUserId(role);
+
+    const doctorDetails = role === 'doctor' ? {
+      slmcRegisterNumber:            slmcRegisterNumber || '',
+      medicalCenterRegisterNumber:   medicalCenterRegisterNumber || '',
+      workingExperience:             workingExperience || '',
+    } : undefined;
+
+    const user = await User.create({
+      userId,
+      role,
+      name,
+      email,
+      passwordHash: password,
+      telephone,
+      isActive: true,
+      doctorDetails,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `${role.charAt(0).toUpperCase() + role.slice(1)} account created successfully`,
+      user: {
+        _id: user._id, userId: user.userId, name: user.name,
+        email: user.email, telephone: user.telephone, role: user.role,
+        isActive: user.isActive, doctorDetails: user.doctorDetails,
+        createdAt: user.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error('Create staff error:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+};
+
 import User from '../models/User.js';
 
 // ══════════════════════════════════════════════════════════════
@@ -194,5 +248,71 @@ export const restoreUser = async (req, res) => {
       message: 'Server error',
       error: error.message,
     });
+  }
+};
+
+// ══════════════════════════════════════════════════════════════
+// @desc    Search patients by name or userId (for doctor forms)
+// @route   GET /api/users/patients/search?q=...
+// @access  Private (doctor, admin)
+// ══════════════════════════════════════════════════════════════
+export const searchPatients = async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.trim().length < 1) return res.status(200).json({ success: true, patients: [] });
+
+    const regex = { $regex: q.trim(), $options: 'i' };
+    const patients = await User.find({
+      role: 'patient',
+      $or: [{ name: regex }, { userId: regex }],
+    }).select('_id userId name photo telephone patientDetails').limit(8);
+
+    res.status(200).json({ success: true, patients });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+};
+
+// ══════════════════════════════════════════════════════════════
+// @desc    Get public doctor profile (for landing page)
+// @route   GET /api/public/doctor
+// @access  Public
+// ══════════════════════════════════════════════════════════════
+export const getPublicDoctor = async (req, res) => {
+  try {
+    const doctor = await User.findOne({ role: 'doctor', isActive: true })
+      .select('name photo doctorDetails telephone');
+    res.status(200).json({ success: true, doctor });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// ══════════════════════════════════════════════════════════════
+// @desc    Get all patients with their prescriptions (for doctor)
+// @route   GET /api/patients
+// @access  Private (doctor, admin)
+// ══════════════════════════════════════════════════════════════
+export const getAllPatients = async (req, res) => {
+  try {
+    const { search } = req.query;
+    const filter = { role: 'patient' };
+
+    if (search) {
+      const regex = { $regex: search.trim(), $options: 'i' };
+      filter.$or = [
+        { name:      regex },
+        { userId:    regex },
+        { telephone: regex },
+      ];
+    }
+
+    const patients = await User.find(filter)
+      .select('-passwordHash')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ success: true, count: patients.length, patients });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
