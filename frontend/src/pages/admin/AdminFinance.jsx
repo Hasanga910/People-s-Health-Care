@@ -21,7 +21,7 @@ const TRANSACTIONS = [
 const maxRev = Math.max(...MONTHLY.map(m => m.revenue));
 
 const REVENUE_SPLIT = [
-  { label: "Consultations",  value: 189000, pct: 49, color: "#B45309" },
+  { label: "Consultations",  value: 189000, pct: 49, color: "#1A237E" },
   { label: "Pharmacy Sales", value: 113000, pct: 29, color: "#1565C0" },
   { label: "Lab Tests",      value:  62000, pct: 16, color: "#00897B" },
   { label: "Other",          value:  25000, pct:  6, color: "#9CA3AF" },
@@ -43,7 +43,7 @@ export default function AdminFinance() {
         {/* KPI cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: "Feb Revenue",   value: `LKR ${thisMonth.revenue.toLocaleString()}`, sub: "↑ 14% vs Jan",        color: "#B45309", bg: "#FEF3C7" },
+            { label: "Feb Revenue",   value: `LKR ${thisMonth.revenue.toLocaleString()}`, sub: "↑ 14% vs Jan",        color: "#1A237E", bg: "#E8EAF6" },
             { label: "Feb Expenses",  value: `LKR ${thisMonth.expenses.toLocaleString()}`, sub: "Operating costs",     color: "#E65100", bg: "#FFF3E0" },
             { label: "Net Profit",    value: `LKR ${profit.toLocaleString()}`,              sub: `${margin}% margin`,   color: "#2E7D32", bg: "#E8F5E9" },
             { label: "Outstanding",   value: "LKR 8,840",                                  sub: "2 unpaid invoices",   color: "#7B1FA2", bg: "#F3E5F5" },
@@ -67,7 +67,7 @@ export default function AdminFinance() {
                 <p className="text-xs text-gray-400 mt-0.5">Last 6 months</p>
               </div>
               <div className="flex items-center gap-3 text-xs text-gray-500">
-                <span className="flex items-center gap-1"><span className="w-3 h-2 rounded-sm inline-block" style={{ background: "#D97706" }} /> Revenue</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-2 rounded-sm inline-block" style={{ background: "#283593" }} /> Revenue</span>
                 <span className="flex items-center gap-1"><span className="w-3 h-2 rounded-sm inline-block bg-gray-200" /> Expenses</span>
               </div>
             </div>
@@ -81,7 +81,7 @@ export default function AdminFinance() {
                     <div className="flex items-end gap-0.5 w-full justify-center">
                       <div className="flex-1 rounded-t-md" style={{
                         height: `${revH}px`,
-                        background: isLatest ? "linear-gradient(180deg,#D97706,#B45309)" : "rgba(217,119,6,0.25)",
+                        background: isLatest ? "linear-gradient(180deg,#1A237E,#283593)" : "rgba(26,35,126,0.2)",
                       }} />
                       <div className="flex-1 rounded-t-md bg-gray-200" style={{ height: `${expH}px`, opacity: isLatest ? 1 : 0.5 }} />
                     </div>
@@ -117,7 +117,7 @@ export default function AdminFinance() {
                 </div>
               ))}
             </div>
-            <div className="mt-4 p-3 bg-amber-50 rounded-xl border border-amber-100 text-xs text-amber-700">
+            <div className="mt-4 p-3 bg-indigo-50 rounded-xl border border-indigo-100 text-xs text-indigo-700">
               💡 Consultations remain the largest revenue driver at <strong>49%</strong>.
             </div>
           </div>
@@ -130,7 +130,7 @@ export default function AdminFinance() {
               <h3 className="font-semibold text-gray-800">Recent Transactions</h3>
               <p className="text-xs text-gray-400 mt-0.5">Today's invoices — 15 February 2026</p>
             </div>
-            <span className="text-xs font-semibold text-amber-600">
+            <span className="text-xs font-semibold text-indigo-600">
               Total: LKR {TRANSACTIONS.reduce((s, t) => s + t.amount, 0).toLocaleString()}
             </span>
           </div>
@@ -138,7 +138,7 @@ export default function AdminFinance() {
             {TRANSACTIONS.map(t => (
               <div key={t.id} className="flex items-center gap-4 px-6 py-4 hover:bg-gray-50 transition">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                  style={{ background: "linear-gradient(135deg, #B45309, #D97706)" }}>
+                  style={{ background: "linear-gradient(135deg, #1A237E, #283593)" }}>
                   {t.patient.split(" ").map(n => n[0]).join("").slice(0, 2)}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -147,12 +147,12 @@ export default function AdminFinance() {
                   <div className="text-xs text-gray-400">{t.time}</div>
                 </div>
                 <div className="text-right flex-shrink-0 mr-4">
-                  <div className="text-sm font-bold text-amber-700">LKR {t.amount.toLocaleString()}</div>
+                  <div className="text-sm font-bold text-indigo-700">LKR {t.amount.toLocaleString()}</div>
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${t.category === "Lab" ? "bg-teal-100 text-teal-700" : "bg-blue-100 text-blue-700"}`}>
                     {t.category}
                   </span>
                 </div>
-                <span className={`text-xs font-bold px-3 py-1.5 rounded-full border flex-shrink-0 ${t.paid ? "bg-green-100 text-green-700 border-green-200" : "bg-amber-100 text-amber-700 border-amber-200"}`}>
+                <span className={`text-xs font-bold px-3 py-1.5 rounded-full border flex-shrink-0 ${t.paid ? "bg-green-100 text-green-700 border-green-200" : "bg-indigo-100 text-indigo-700 border-indigo-200"}`}>
                   {t.paid ? "✅ Paid" : "⏳ Pending"}
                 </span>
               </div>

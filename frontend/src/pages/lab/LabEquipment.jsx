@@ -52,7 +52,7 @@ function EquipmentModal({ eq, onClose, isNew = false }) {
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{label}</label>
                 <input type="text" value={form[field]} onChange={e => update(field, e.target.value)}
                   placeholder={placeholder}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 transition" />
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
               </div>
             ))}
           </div>
@@ -61,14 +61,14 @@ function EquipmentModal({ eq, onClose, isNew = false }) {
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Type</label>
               <select value={form.type} onChange={e => update("type", e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400">
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 {["Diagnostic", "Processing", "Monitoring", "Other"].map(t => <option key={t}>{t}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Status</label>
               <select value={form.status} onChange={e => update("status", e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400">
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 {["Operational", "Maintenance Due", "Under Repair", "Decommissioned"].map(s => <option key={s}>{s}</option>)}
               </select>
             </div>
@@ -83,7 +83,7 @@ function EquipmentModal({ eq, onClose, isNew = false }) {
               <div key={field}>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{label}</label>
                 <input type={type} value={form[field]} onChange={e => update(field, e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400" />
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
             ))}
           </div>
@@ -92,19 +92,19 @@ function EquipmentModal({ eq, onClose, isNew = false }) {
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Location</label>
             <input type="text" value={form.location} onChange={e => update("location", e.target.value)}
               placeholder="e.g. Lab Room A"
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 transition" />
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Specifications</label>
             <textarea value={form.specs} onChange={e => update("specs", e.target.value)} rows={2} placeholder="Technical specifications..."
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 transition resize-none" />
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none" />
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Notes / Maintenance Remarks</label>
             <textarea value={form.notes} onChange={e => update("notes", e.target.value)} rows={2} placeholder="Any issues, notes or remarks..."
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 transition resize-none" />
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none" />
           </div>
 
           <div className="flex gap-3 pt-2">
@@ -113,7 +113,7 @@ function EquipmentModal({ eq, onClose, isNew = false }) {
             </button>
             <button onClick={onClose}
               className="flex-1 py-3 rounded-xl text-white text-sm font-semibold shadow-lg transition hover:opacity-90"
-              style={{ background: "linear-gradient(135deg, #006064, #00838F)" }}>
+              style={{ background: "linear-gradient(135deg, #0D47A1, #1565C0)" }}>
               {isNew ? "Add Equipment" : "Save Changes"}
             </button>
           </div>
@@ -153,7 +153,7 @@ export default function LabEquipment() {
           </div>
           <button onClick={() => setShowModal(true)}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold shadow-lg transition-transform hover:scale-105"
-            style={{ background: "linear-gradient(135deg, #006064, #00838F)" }}>
+            style={{ background: "linear-gradient(135deg, #0D47A1, #1565C0)" }}>
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
               <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
             </svg>
@@ -164,8 +164,8 @@ export default function LabEquipment() {
         {/* Stats */}
         <div className="grid grid-cols-4 gap-4">
           {[
-            { label: "Total Equipment", value: EQUIPMENT.length, color: "#006064", bg: "#E0F2F1" },
-            { label: "Operational", value: EQUIPMENT.filter(e => e.status === "Operational").length, color: "#00897B", bg: "#E0F2F1" },
+            { label: "Total Equipment", value: EQUIPMENT.length, color: "#0D47A1", bg: "#E3F2FD" },
+            { label: "Operational", value: EQUIPMENT.filter(e => e.status === "Operational").length, color: "#1565C0", bg: "#E3F2FD" },
             { label: "Maintenance Due", value: maintenanceDue, color: "#B71C1C", bg: "#FFEBEE" },
             { label: "Under Repair", value: EQUIPMENT.filter(e => e.status === "Under Repair").length, color: "#E65100", bg: "#FFF3E0" },
           ].map(s => (
@@ -196,7 +196,7 @@ export default function LabEquipment() {
               className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
                 statusFilter === f ? "text-white shadow-md" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
-              style={statusFilter === f ? { background: "linear-gradient(135deg, #006064, #00838F)" } : {}}>
+              style={statusFilter === f ? { background: "linear-gradient(135deg, #0D47A1, #1565C0)" } : {}}>
               {f}
             </button>
           ))}
@@ -219,7 +219,7 @@ export default function LabEquipment() {
                   <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${style.dot}`} />
 
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-                    style={{ background: "#E0F2F1" }}>
+                    style={{ background: "#E3F2FD" }}>
                     ⚙️
                   </div>
 
@@ -275,7 +275,7 @@ export default function LabEquipment() {
 
                     <div className="flex gap-2">
                       <button onClick={() => setEditEquip(eq)}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-teal-200 text-teal-700 text-xs font-semibold hover:bg-teal-50 transition">
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-blue-200 text-blue-700 text-xs font-semibold hover:bg-blue-50 transition">
                         <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
                         Edit
                       </button>

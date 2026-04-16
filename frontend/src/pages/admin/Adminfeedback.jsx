@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import CashierLayout from "../../components/CashierLayout";
+import AdminLayout from "../../components/AdminLayout";
 import { getAllFeedback, getRatingDistribution } from "../../services/feedbackAPI";
 
 const RATING_LABELS = { 1: "Poor", 2: "Fair", 3: "Good", 4: "Very Good", 5: "Excellent" };
@@ -18,7 +18,7 @@ function Stars({ rating, size = "sm" }) {
   );
 }
 
-export default function CashierFeedback() {
+export default function AdminFeedback() {
   const [feedbacks, setFeedbacks]       = useState([]);
   const [distribution, setDistribution] = useState([]);
   const [loading, setLoading]           = useState(true);
@@ -88,7 +88,7 @@ export default function CashierFeedback() {
   const maxCount = distribution.length > 0 ? Math.max(...distribution.map((d) => d.count), 1) : 1;
 
   return (
-    <CashierLayout activePage="Feedback">
+    <AdminLayout activePage="Feedback">
       <div className="p-6 space-y-5">
         <div>
           <h1 className="text-xl font-bold text-gray-800" style={{ fontFamily: "'Playfair Display', serif" }}>
@@ -197,7 +197,7 @@ export default function CashierFeedback() {
               placeholder="Search patient or feedback..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 transition"
+              className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
             />
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -206,7 +206,7 @@ export default function CashierFeedback() {
                 key={r}
                 onClick={() => { setRatingFilter(r); setPage(1); }}
                 className={`px-3 py-2 rounded-xl text-xs font-semibold transition ${ratingFilter === r ? "text-white shadow-md" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-                style={ratingFilter === r ? { background: "linear-gradient(135deg, #01579B, #0277BD)" } : {}}
+                style={ratingFilter === r ? { background: "linear-gradient(135deg, #1A237E, #283593)" } : {}}
               >
                 {r === "All" ? "All Stars" : `${"★".repeat(parseInt(r))}`}
               </button>
@@ -246,7 +246,7 @@ export default function CashierFeedback() {
                   <div className="flex items-start gap-4">
                     <div
                       className="w-11 h-11 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                      style={{ background: "linear-gradient(135deg, #0D2137, #01579B)" }}
+                      style={{ background: "linear-gradient(135deg, #0D2137, #1A237E)" }}
                     >
                       {fb.patientName?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
                     </div>
@@ -304,6 +304,6 @@ export default function CashierFeedback() {
           </div>
         )}
       </div>
-    </CashierLayout>
+    </AdminLayout>
   );
 }

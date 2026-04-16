@@ -1,4 +1,33 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+
+// ── Logout Confirmation Modal ──────────────────────────────────
+function LogoutModal({ onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
+      <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-80 mx-4">
+        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 mx-auto mb-4">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-6 h-6 text-red-500">
+            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
+          </svg>
+        </div>
+        <h3 className="text-center text-gray-800 font-bold text-lg mb-1">Sign Out</h3>
+        <p className="text-center text-gray-500 text-sm mb-6">Are you sure you want to log out of your account?</p>
+        <div className="flex gap-3">
+          <button onClick={onCancel}
+            className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition">
+            Cancel
+          </button>
+          <button onClick={onConfirm}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition">
+            Sign Out
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const NAV_ITEMS = [
   {
@@ -31,14 +60,27 @@ const NAV_ITEMS = [
     href: "/admin/settings",
     icon: (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>),
   },
+  {
+    label: "Patient Feedback",
+    href: "/admin/feedback",
+    icon: (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>),
+  },
 ];
 
-const ACCENT_FROM = "#B45309";
-const ACCENT_TO   = "#D97706";
+const ACCENT_FROM = "#1A237E";
+const ACCENT_TO   = "#283593";
 
 export default function AdminLayout({ children, activePage = "Dashboard" }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notifOpen, setNotifOpen]     = useState(false);
+  const [showLogout, setShowLogout]   = useState(false);
+  const navigate = useNavigate();
+
+  const confirmLogout = () => {
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("user");
+    navigate("/login", { replace: true });
+  };
 
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
@@ -46,6 +88,7 @@ export default function AdminLayout({ children, activePage = "Dashboard" }) {
 
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif" }} className="flex h-screen bg-gray-50 overflow-hidden">
+      {showLogout && <LogoutModal onConfirm={confirmLogout} onCancel={() => setShowLogout(false)} />}
 
       {/* ── SIDEBAR ── */}
       <aside
@@ -54,11 +97,8 @@ export default function AdminLayout({ children, activePage = "Dashboard" }) {
       >
         {/* Logo */}
         <div className="flex items-center gap-3 px-5 py-5 border-b border-white/10">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: `linear-gradient(135deg, ${ACCENT_FROM}, ${ACCENT_TO})` }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2.5} className="w-5 h-5">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
+          <div className="w-9 h-9 rounded-xl flex-shrink-0 overflow-hidden">
+            <img src="/Logo.png" alt="PHC" className="w-full h-full object-contain" />
           </div>
           {sidebarOpen && (
             <div className="overflow-hidden">
@@ -108,13 +148,13 @@ export default function AdminLayout({ children, activePage = "Dashboard" }) {
 
         {/* Bottom */}
         <div className="p-4 border-t border-white/10">
-          <a href="/logout"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-500/10 transition ${!sidebarOpen ? "justify-center" : ""}`}>
+          <button onClick={() => setShowLogout(true)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-500/10 transition w-full ${!sidebarOpen ? "justify-center" : ""}`}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 flex-shrink-0">
               <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
             </svg>
             {sidebarOpen && <span>Logout</span>}
-          </a>
+          </button>
         </div>
 
         {/* ── Sidebar collapse toggle ── */}

@@ -51,7 +51,7 @@ function Toggle({ on, onChange }) {
   return (
     <button onClick={onChange}
       className={`relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${on ? "" : "bg-gray-200"}`}
-      style={on ? { background: "linear-gradient(135deg, #B45309, #D97706)" } : {}}>
+      style={on ? { background: "linear-gradient(135deg, #1A237E, #283593)" } : {}}>
       <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${on ? "translate-x-5" : "translate-x-0"}`} />
     </button>
   );
@@ -90,7 +90,7 @@ export default function AdminSettings() {
           </div>
           <button onClick={handleSave}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold shadow-lg transition ${saved ? "bg-green-600" : ""}`}
-            style={!saved ? { background: "linear-gradient(135deg, #B45309, #D97706)" } : {}}>
+            style={!saved ? { background: "linear-gradient(135deg, #1A237E, #283593)" } : {}}>
             {saved ? "✅ Saved!" : "💾 Save Changes"}
           </button>
         </div>
@@ -105,7 +105,7 @@ export default function AdminSettings() {
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition text-left ${
                   activeSection === s.id ? "text-white shadow-md" : "text-gray-600 hover:bg-gray-100"
                 }`}
-                style={activeSection === s.id ? { background: "linear-gradient(135deg, #B45309, #D97706)" } : { background: "white", border: "1px solid #f3f4f6" }}>
+                style={activeSection === s.id ? { background: "linear-gradient(135deg, #1A237E, #283593)" } : { background: "white", border: "1px solid #f3f4f6" }}>
                 <span>{s.icon}</span>
                 <span>{s.label}</span>
               </button>
@@ -130,7 +130,7 @@ export default function AdminSettings() {
                       <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{field.label}</label>
                       <input type={field.type} value={field.value}
                         onChange={e => updateField(section.id, field.key, e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 transition" />
+                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 transition" />
                     </div>
                   ))}
                 </div>

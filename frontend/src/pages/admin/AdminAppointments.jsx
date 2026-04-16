@@ -15,7 +15,7 @@ const APPOINTMENTS = [
 const STATUS_STYLE = {
   Completed:   { bg: "bg-green-100",  text: "text-green-700",  border: "border-green-200",  dot: "bg-green-400"  },
   "In Progress":{ bg: "bg-blue-100",  text: "text-blue-700",   border: "border-blue-200",   dot: "bg-blue-500"   },
-  Waiting:     { bg: "bg-amber-100",  text: "text-amber-700",  border: "border-amber-200",  dot: "bg-amber-400"  },
+  Waiting:     { bg: "bg-indigo-100",  text: "text-indigo-700",  border: "border-indigo-200",  dot: "bg-indigo-400"  },
   Scheduled:   { bg: "bg-gray-100",   text: "text-gray-600",   border: "border-gray-200",   dot: "bg-gray-400"   },
 };
 
@@ -42,7 +42,7 @@ export default function AdminAppointments() {
         {/* Stats */}
         <div className="grid grid-cols-4 gap-4">
           {[
-            { label: "Total Today",  value: APPOINTMENTS.length, color: "#B45309", bg: "#FEF3C7" },
+            { label: "Total Today",  value: APPOINTMENTS.length, color: "#1A237E", bg: "#E8EAF6" },
             { label: "Completed",    value: counts["Completed"],    color: "#2E7D32", bg: "#E8F5E9" },
             { label: "In Progress",  value: counts["In Progress"],  color: "#1565C0", bg: "#E3F2FD" },
             { label: "Waiting",      value: counts["Waiting"],      color: "#E65100", bg: "#FFF3E0" },
@@ -61,13 +61,13 @@ export default function AdminAppointments() {
               <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"/>
             </svg>
             <input type="text" placeholder="Search patient or appointment ID…" value={search} onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 transition" />
+              className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 transition" />
           </div>
           <div className="flex gap-2 flex-wrap">
             {["All", "Completed", "In Progress", "Waiting", "Scheduled"].map(f => (
               <button key={f} onClick={() => setFilter(f)}
                 className={`px-3 py-2 rounded-xl text-xs font-semibold transition ${filter === f ? "text-white shadow-md" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-                style={filter === f ? { background: "linear-gradient(135deg, #B45309, #D97706)" } : {}}>
+                style={filter === f ? { background: "linear-gradient(135deg, #1A237E, #283593)" } : {}}>
                 {f}
               </button>
             ))}
@@ -90,12 +90,12 @@ export default function AdminAppointments() {
                 return (
                   <tr key={a.id} className="hover:bg-gray-50 transition">
                     <td className="px-5 py-3.5">
-                      <span className="font-mono text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full font-semibold">#{a.channeling}</span>
+                      <span className="font-mono text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-semibold">#{a.channeling}</span>
                     </td>
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                          style={{ background: "linear-gradient(135deg, #B45309, #D97706)" }}>
+                          style={{ background: "linear-gradient(135deg, #1A237E, #283593)" }}>
                           {a.patient.split(" ").map(n => n[0]).join("").slice(0, 2)}
                         </div>
                         <div>
@@ -119,7 +119,7 @@ export default function AdminAppointments() {
                       </span>
                     </td>
                     <td className="px-5 py-3.5">
-                      <button className="text-xs font-semibold text-amber-600 hover:underline">View</button>
+                      <button className="text-xs font-semibold text-indigo-600 hover:underline">View</button>
                     </td>
                   </tr>
                 );
