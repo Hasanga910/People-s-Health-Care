@@ -2,20 +2,27 @@ import dns from 'node:dns';
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 dns.setDefaultResultOrder('ipv4first');
 
-
 import express from 'express';
-import dotenv from 'dotenv';
-import cors from 'cors';
+import dotenv  from 'dotenv';
+import cors    from 'cors';
 import connectDB from './config/db.js';
-import appointmentRoutes from './routes/appointments.js';
 
-// Import routes
+// ── Core routes ─────────────────────────────────────────────────
 import authRoutes         from './routes/auth.js';
 import userRoutes         from './routes/users.js';
 import patientRoutes      from './routes/patients.js';
 import prescriptionRoutes from './routes/Prescriptions.js';
-import labRequestRoutes   from './routes/labRequests.js';
+import labRequestRoutes      from './routes/labRequests.js';
+import feedbackRoutes        from './routes/feedback.js';
+import labTestResultRoutes  from './routes/labTestResults.js';
 import publicRoutes       from './routes/public.js';
+import appointmentRoutes  from './routes/appointments.js';
+
+// ── Pharmacy & billing routes ────────────────────────────────────
+import drugRoutes     from './routes/Drugs.js';
+import stockRoutes    from './routes/Stocks.js';
+import pharmacyRoutes from './routes/pharmacy.js';
+import billRoutes     from './routes/Bills.js';
 
 // Load environment variables
 dotenv.config();
@@ -30,17 +37,14 @@ const app = express();
 // MIDDLEWARE
 // ══════════════════════════════════════════════════════════════
 
-// CORS - allow frontend to make requests
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true,
 }));
 
-// Body parser - parse JSON requests
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Request logger (development)
 if (process.env.NODE_ENV !== 'production') {
   app.use((req, res, next) => {
     console.log(`${req.method} ${req.path}`);
@@ -52,7 +56,6 @@ if (process.env.NODE_ENV !== 'production') {
 // ROUTES
 // ══════════════════════════════════════════════════════════════
 
-// Health check
 app.get('/', (req, res) => {
   res.json({
     success: true,
@@ -61,14 +64,22 @@ app.get('/', (req, res) => {
   });
 });
 
-// API routes
+// Core API routes
 app.use('/api/auth',          authRoutes);
 app.use('/api/users',         userRoutes);
 app.use('/api/patients',      patientRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/lab-requests',  labRequestRoutes);
+app.use('/api/feedback',      feedbackRoutes);
+app.use('/api/lab-results',   labTestResultRoutes);
 app.use('/api/public',        publicRoutes);
-app.use('/api/appointments', appointmentRoutes);
+app.use('/api/appointments',  appointmentRoutes);
+
+// Pharmacy & billing routes
+app.use('/api/drugs',    drugRoutes);
+app.use('/api/stocks',   stockRoutes);
+app.use('/api/pharmacy', pharmacyRoutes);
+app.use('/api/bills',    billRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -100,9 +111,7 @@ app.listen(PORT, () => {
   console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL}\n`);
 });
 
-// Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled Rejection:', err);
-  // Close server & exit process
   process.exit(1);
 });

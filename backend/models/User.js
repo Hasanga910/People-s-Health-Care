@@ -9,47 +9,59 @@ const userSchema = new mongoose.Schema({
     enum: ['doctor', 'patient', 'lab', 'pharmacy', 'cashier', 'admin'],
   },
 
-  // ── Common fields (all users) ──────────────────────────────
-  name:      { type: String, required: true, trim: true },
-  email:     { type: String, required: true, unique: true, lowercase: true, trim: true },
-  passwordHash: { type: String, required: true, select: false },
-  telephone: { type: String, required: true },
-  photo:     { type: String, default: null },
-  isActive:  { type: Boolean, default: true },
+  // ── Common fields ──────────────────────────────────────
+  name:         { type: String, required: true, trim: true },
+  email:        { type: String, default: null, lowercase: true, trim: true, sparse: true },
+  // email is now OPTIONAL — null for username-based patients
+  // sparse: true means the unique index ignores null values
+  // so multiple patients can have null email without conflict
 
-  // ── Patient-specific (role: 'patient' only) ───────────────
+  username:     { type: String, default: null, lowercase: true, trim: true, sparse: true },
+  // username used instead of email for patients without email
+  // also sparse: true so multiple nulls are allowed
+  // only one of email OR username will be set per patient
+
+  passwordHash: { type: String, required: true, select: false },
+  telephone:    { type: String, required: true },
+  photo:        { type: String, default: null },
+  isActive:     { type: Boolean, default: true },
+
+  // ── Patient-specific ───────────────────────────────────
   patientDetails: {
     type: {
-      gender:               { type: String, enum: ['Male', 'Female', 'Other'] },
-      birthday:             Date,
-      bloodGroup:           { type: String, enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Unknown'] },
-      allergies:            [String],
-      chronicConditions:    String,
-      currentMedications:   String,
+      gender:                 { type: String, enum: ['Male', 'Female', 'Other'] },
+      birthday:               Date,
+      bloodGroup:             { type: String, enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Unknown'] },
+      allergies:              [String],
+      chronicConditions:      String,
+      currentMedications:     String,
       emergencyContactName:   String,
       emergencyContactNumber: String,
-      address:              String,
+      address:                String,
     },
     default: undefined,
   },
 
-  // ── Doctor-specific (role: 'doctor' only) ─────────────────
+  // ── Doctor-specific ────────────────────────────────────
   doctorDetails: {
     type: {
-      slmcRegisterNumber:          String,
-      medicalCenterRegisterNumber: String,
-      workingExperience:           String,
-      certifications:              [String],
+      slmcRegisterNumber: String,
+      workingExperience:  String,
+      certifications:     [String],
     },
     default: undefined,
   },
 
 }, { timestamps: true });
 
-// Indexes — role index only; email and userId are indexed via unique:true above
+// ── Indexes ────────────────────────────────────────────────
 userSchema.index({ role: 1 });
+userSchema.index({ email: 1 }, { sparse: true, unique: true });
+userSchema.index({ username: 1 }, { sparse: true, unique: true });
+// sparse unique indexes allow multiple null values
+// but reject duplicate non-null values
 
-// Hash password before save
+// ── Hash password before save ──────────────────────────────
 userSchema.pre('save', async function (next) {
   if (!this.isModified('passwordHash')) return next();
   const salt = await bcrypt.genSalt(10);
@@ -57,14 +69,17 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
-// Compare password
-userSchema.methods.comparePassword = async function (candidatePassword) {
-  return bcrypt.compare(candidatePassword, this.passwordHash);
+// ── Compare password ───────────────────────────────────────
+userSchema.methods.comparePassword = async function (candidate) {
+  return bcrypt.compare(candidate, this.passwordHash);
 };
 
-// Auto-generate userId
+// ── Auto-generate userId ───────────────────────────────────
 userSchema.statics.generateUserId = async function (role) {
-  const prefix = { doctor: 'DOC', patient: 'PAT', lab: 'LAB', pharmacy: 'PHA', cashier: 'CSH', admin: 'ADM' };
+  const prefix = {
+    doctor: 'DOC', patient: 'PAT', lab: 'LAB',
+    pharmacy: 'PHA', cashier: 'CSH', admin: 'ADM'
+  };
   const year = new Date().getFullYear();
   const lastUser = await this.findOne({ role }).sort({ createdAt: -1 });
   let sequence = 1;
@@ -78,7 +93,7 @@ userSchema.statics.generateUserId = async function (role) {
     : `${prefix[role]}-${paddedSeq}`;
 };
 
-// Virtual: age from birthday
+// ── Virtual: age ───────────────────────────────────────────
 userSchema.virtual('age').get(function () {
   if (!this.patientDetails?.birthday) return null;
   const today = new Date();
@@ -87,6 +102,12 @@ userSchema.virtual('age').get(function () {
   const m = today.getMonth() - birth.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
   return age;
+});
+
+// ── Virtual: loginIdentifier ───────────────────────────────
+// Returns whichever identifier the patient uses to login
+userSchema.virtual('loginIdentifier').get(function () {
+  return this.email || this.username || '';
 });
 
 userSchema.set('toJSON', { virtuals: true });
