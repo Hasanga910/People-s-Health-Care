@@ -281,6 +281,14 @@ function AddStockModal({ drug, onClose, onAdded }) {
 
           <div><Lbl t="Manufactured Date" /><input className={cls} type="date" value={manufacturedDate} onChange={e => setManufacturedDate(e.target.value)} /></div>
 
+          {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl">{error}</div>}
+
+          <div><Lbl t="Quantity Received" req /><input className={cls} type="number" min="1" value={receivedQty} onChange={e => setReceivedQty(e.target.value)} placeholder="e.g. 200" /></div>
+
+          <div><Lbl t="Expiry Date" req /><input className={cls} type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} /></div>
+
+          <div><Lbl t="Manufactured Date" /><input className={cls} type="date" value={manufacturedDate} onChange={e => setManufacturedDate(e.target.value)} /></div>
+
           <div>
             <Lbl t="Unit Price for This Lot (LKR)" />
             <input className={cls} type="number" min="0" value={unitPrice} onChange={e => setUnitPrice(e.target.value)} />

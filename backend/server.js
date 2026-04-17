@@ -24,6 +24,12 @@ import stockRoutes    from './routes/Stocks.js';
 import pharmacyRoutes from './routes/pharmacy.js';
 import billRoutes     from './routes/Bills.js';
 
+
+import drugRoutes     from './routes/Drugs.js';
+import stockRoutes    from './routes/Stocks.js';
+import pharmacyRoutes from './routes/Pharmacy.js';
+import billRoutes     from './routes/Bills.js';
+
 // Load environment variables
 dotenv.config();
 
@@ -88,6 +94,13 @@ app.use((req, res) => {
     message: 'Route not found',
   });
 });
+
+
+// Pharmacy & billing routes
+app.use('/api/drugs',    drugRoutes);
+app.use('/api/stocks',   stockRoutes);
+app.use('/api/pharmacy', pharmacyRoutes);
+app.use('/api/bills',    billRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {
