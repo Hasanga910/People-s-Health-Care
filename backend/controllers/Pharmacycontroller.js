@@ -467,3 +467,106 @@ export const getPharmacyDashboard = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
+// ── GET PHARMACY NOTIFICATIONS ────────────────────────────────
+// GET /api/pharmacy/notifications
+// Returns:
+//   - Pending prescriptions (not yet dispensed)
+//   - Low stock drugs (below threshold)
+//   - Recently dispensed items
+export const getPharmacyNotifications = async (req, res) => {
+  try {
+    const LOW_STOCK_THRESHOLD = 20; // Alert if stock < 20 units
+
+    // 1. Get pending/in-review prescriptions
+    const pendingPrescriptions = await PharmacyPrescription.find({
+      status: { $in: ["pending", "in_review", "partially_available"] },
+    })
+      .select("prescriptionRef patientName status createdAt lines")
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .populate("lines.drugId", "name strength form unit");
+
+    // 2. Get low stock drugs
+    const lowStockDrugs = await DrugStock.aggregate([
+      {
+        $match: {
+          quantity: { $lt: LOW_STOCK_THRESHOLD },
+        },
+      },
+      {
+        $lookup: {
+          from: "drugs",
+          localField: "drugId",
+          foreignField: "_id",
+          as: "drug",
+        },
+      },
+      {
+        $unwind: "$drug",
+      },
+      {
+        $project: {
+          drugName: "$drug.name",
+          strength: "$drug.strength",
+          form: "$drug.form",
+          unit: "$drug.unit",
+          quantity: 1,
+          batchNo: 1,
+          expiryDate: 1,
+          unitPrice: 1,
+        },
+      },
+      {
+        $sort: { quantity: 1 },
+      },
+      {
+        $limit: 10,
+      },
+    ]);
+
+    // 3. Format notifications
+    const prescriptionNotifications = pendingPrescriptions.map((rx) => ({
+      type: "prescription",
+      id: rx._id,
+      ref: rx.prescriptionRef,
+      message: `${rx.patientName} - ${rx.prescriptionRef}`,
+      details: `${rx.lines?.length || 0} medications`,
+      status: rx.status,
+      time: rx.createdAt,
+      icon: "💊",
+    }));
+
+    const stockNotifications = lowStockDrugs.map((drug) => ({
+      type: "low_stock",
+      id: drug._id,
+      drugName: drug.drugName,
+      message: `${drug.drugName} ${drug.strength || ""}`.trim(),
+      details: `${drug.quantity} ${drug.unit} remaining`,
+      quantity: drug.quantity,
+      expiryDate: drug.expiryDate,
+      icon: "⚠️",
+      time: new Date(),
+    }));
+
+    // Combine all notifications, sorted by time (newest first)
+    const allNotifications = [
+      ...prescriptionNotifications,
+      ...stockNotifications,
+    ].sort((a, b) => new Date(b.time) - new Date(a.time));
+
+    res.status(200).json({
+      success: true,
+      notifications: allNotifications,
+      summary: {
+        pendingPrescriptions: pendingPrescriptions.length,
+        lowStockItems: lowStockDrugs.length,
+        total: allNotifications.length,
+      },
+    });
+  } catch (error) {
+    console.error("getPharmacyNotifications error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Server error", error: error.message });
+  }
+};
