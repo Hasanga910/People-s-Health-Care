@@ -36,10 +36,9 @@ const userSchema = new mongoose.Schema({
   // ── Doctor-specific (role: 'doctor' only) ─────────────────
   doctorDetails: {
     type: {
-      slmcRegisterNumber:          String,
-      medicalCenterRegisterNumber: String,
-      workingExperience:           String,
-      certifications:              [String],
+      slmcRegisterNumber: String,
+      workingExperience:  String,
+      certifications:     [String],
     },
     default: undefined,
   },
