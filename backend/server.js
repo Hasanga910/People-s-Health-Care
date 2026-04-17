@@ -84,6 +84,13 @@ app.use((req, res) => {
   });
 });
 
+
+// Pharmacy & billing routes
+app.use('/api/drugs',    drugRoutes);
+app.use('/api/stocks',   stockRoutes);
+app.use('/api/pharmacy', pharmacyRoutes);
+app.use('/api/bills',    billRoutes);
+
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('Error:', err);
