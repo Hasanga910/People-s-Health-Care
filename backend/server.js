@@ -17,6 +17,12 @@ import prescriptionRoutes from './routes/Prescriptions.js';
 import labRequestRoutes   from './routes/labRequests.js';
 import publicRoutes       from './routes/public.js';
 
+
+import drugRoutes     from './routes/Drugs.js';
+import stockRoutes    from './routes/Stocks.js';
+import pharmacyRoutes from './routes/Pharmacy.js';
+import billRoutes     from './routes/Bills.js';
+
 // Load environment variables
 dotenv.config();
 
