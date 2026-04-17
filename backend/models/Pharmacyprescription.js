@@ -1,5 +1,15 @@
 import mongoose from 'mongoose';
 
+/*
+ * PharmacyPrescription
+ * --------------------
+ * Created when a doctor's Prescription reaches the pharmacy.
+ * The pharmacist reviews each medication line, checks stock,
+ * adds notes if a drug is unavailable, and marks it dispensed.
+ * On dispense → stock is automatically reduced (see post-save hook).
+ */
+
+// ── Sub-schema: one line per medication in the prescription ─────
 const prescriptionLineSchema = new mongoose.Schema(
   {
     // Copied from the doctor's medication entry

@@ -485,15 +485,6 @@ function DispenseModal({ rx, onClose, onDispensed }) {
   );
 }
 
-// ── Lab Status config ──────────────────────────────────────────
-const LAB_STATUS_CONFIG = {
-  payment_pending: { bg: "bg-yellow-100", text: "text-yellow-700", label: "Payment Pending", icon: "💳" },
-  pre_check:       { bg: "bg-blue-100",   text: "text-blue-700",   label: "Pre-Check",       icon: "📋" },
-  sample_received: { bg: "bg-purple-100", text: "text-purple-700", label: "Sample Received",  icon: "🧪" },
-  in_progress:     { bg: "bg-orange-100", text: "text-orange-700", label: "In Progress",      icon: "⚗️" },
-  completed:       { bg: "bg-green-100",  text: "text-green-700",  label: "Completed",        icon: "✅" },
-};
-
 // ── Main Page ──────────────────────────────────────────────────
 export default function PharmacyQueue() {
   const [prescriptions, setPrescriptions] = useState([]);
@@ -503,8 +494,6 @@ export default function PharmacyQueue() {
   const [selectedId,    setSelectedId]    = useState(null); // id only — always read live
   const [modal,         setModal]         = useState(null);
   const [toast,         setToast]         = useState(null);
-  const [labInfo,       setLabInfo]       = useState(null);   // { hasLabTest, labRequest, labResults }
-  const [labLoading,    setLabLoading]    = useState(false);
 
   const showToast = (msg, type = "success") => setToast({ msg, type });
 
@@ -530,17 +519,6 @@ export default function PharmacyQueue() {
   }, [statusFilter]);
 
   useEffect(() => { fetchPrescriptions(); }, [fetchPrescriptions]);
-
-  // Fetch lab test info whenever a prescription is selected
-  useEffect(() => {
-    if (!selectedId) { setLabInfo(null); return; }
-    setLabLoading(true);
-    fetch(`${API}/pharmacy/${selectedId}/labtest`, { headers: authHeaders() })
-      .then(r => r.json())
-      .then(data => { if (data.success) setLabInfo(data); })
-      .catch(() => {})
-      .finally(() => setLabLoading(false));
-  }, [selectedId]);
 
   const handleReviewed = (updatedRx) => {
     setPrescriptions(prev => prev.map(p => p._id === updatedRx._id ? updatedRx : p));
@@ -809,8 +787,6 @@ export default function PharmacyQueue() {
                     <p className="text-gray-700">{rx.generalNote}</p>
                   </div>
                 )}
-
-                {/* Lab test details hidden for pharmacist view */}
 
                 {rx.status === "dispensed" && (
                   <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-sm">

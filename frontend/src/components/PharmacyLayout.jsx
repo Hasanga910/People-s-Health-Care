@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const NAV_ITEMS = [
   {
@@ -35,12 +36,48 @@ const NAV_ITEMS = [
 ];
 
 // Emerald green accent for pharmacy
-const ACCENT_FROM = "#2E7D32";
-const ACCENT_TO   = "#00897B";
+const ACCENT_FROM = "#263238";
+const ACCENT_TO   = "#37474F";
+
+// ── Logout Confirmation Modal ──────────────────────────────────
+function LogoutModal({ onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
+      <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-80 mx-4">
+        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 mx-auto mb-4">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-6 h-6 text-red-500">
+            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
+          </svg>
+        </div>
+        <h3 className="text-center text-gray-800 font-bold text-lg mb-1">Sign Out</h3>
+        <p className="text-center text-gray-500 text-sm mb-6">Are you sure you want to log out of your account?</p>
+        <div className="flex gap-3">
+          <button onClick={onCancel}
+            className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition">
+            Cancel
+          </button>
+          <button onClick={onConfirm}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition">
+            Sign Out
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function PharmacyLayout({ children, activePage = "Dashboard" }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [showLogout, setShowLogout] = useState(false);
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("user");
+    navigate("/login", { replace: true });
+  };
 
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
@@ -48,6 +85,7 @@ export default function PharmacyLayout({ children, activePage = "Dashboard" }) {
 
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif" }} className="flex h-screen bg-gray-50 overflow-hidden">
+      {showLogout && <LogoutModal onConfirm={handleLogout} onCancel={() => setShowLogout(false)} />}
 
       {/* ── SIDEBAR — same navy as all other portals ── */}
       <aside
@@ -56,11 +94,8 @@ export default function PharmacyLayout({ children, activePage = "Dashboard" }) {
       >
         {/* Logo */}
         <div className="flex items-center gap-3 px-5 py-5 border-b border-white/10">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: `linear-gradient(135deg, ${ACCENT_FROM}, ${ACCENT_TO})` }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" className="w-5 h-5">
-              <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0016.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 002 8.5c0 2.3 1.5 4.05 3 5.5l7 7z" />
-            </svg>
+          <div className="w-9 h-9 rounded-xl flex-shrink-0 overflow-hidden">
+            <img src="/Logo.png" alt="PHC" className="w-full h-full object-contain" />
           </div>
           {sidebarOpen && (
             <div className="overflow-hidden">
@@ -117,13 +152,13 @@ export default function PharmacyLayout({ children, activePage = "Dashboard" }) {
 
         {/* Bottom */}
         <div className="p-4 border-t border-white/10">
-          <a href="/logout"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-500/10 transition ${!sidebarOpen ? "justify-center" : ""}`}>
+          <button onClick={() => setShowLogout(true)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-500/10 transition ${!sidebarOpen ? "justify-center" : ""}`}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 flex-shrink-0">
               <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
             </svg>
             {sidebarOpen && <span>Logout</span>}
-          </a>
+          </button>
         </div>
 
         {/* ── Sidebar collapse toggle ── */}

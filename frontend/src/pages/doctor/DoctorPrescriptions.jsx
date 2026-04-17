@@ -3,13 +3,48 @@ import { useLocation, useNavigate } from "react-router-dom";
 import DoctorLayout from "../../components/DoctorLayout";
 import api from "../../services/api";
 import PatientSearchInput from "../../components/PatientSearchInput";
+import DrugSearchInput from "../../components/DrugSearchInput";
 
 const LAB_TESTS = [
-  "CBC (Full Blood Count)", "Fasting Blood Sugar", "Random Blood Sugar", "HbA1c",
-  "Lipid Profile", "Liver Function Test (LFT)", "Kidney Function Test (KFT)",
-  "Creatinine", "Thyroid Function (TSH)", "Urine Analysis", "Urine Culture",
-  "ECG", "Blood Culture", "Serum Electrolytes", "Iron Studies",
-  "Vitamin B12", "Vitamin D", "Widal Test", "Dengue NS1 Antigen",
+  "FBC",
+  "ESR",
+  "FBS",
+  "Liver Profile",
+  "Renal Profile",
+  "Thyroid Profile",
+  "Serum Vit D Level",
+  "Dengue Ag",
+];
+
+const DOSAGE_OPTIONS = [
+  "1 tablet once daily",
+  "1 tablet twice daily (morning & night)",
+  "1 tablet three times daily (morning, noon & night)",
+  "½ tablet once daily",
+  "½ tablet twice daily",
+  "1 tablet at night",
+  "1 tablet before meals",
+  "1 tablet after meals",
+  "2 tablets once daily",
+  "2 tablets twice daily",
+  "1 teaspoon (5ml) twice daily",
+  "1 teaspoon (5ml) three times daily",
+  "Apply topically twice daily",
+  "1 capsule once daily",
+  "1 capsule twice daily",
+];
+
+const DURATION_OPTIONS = [
+  "3 days",
+  "5 days",
+  "1 week",
+  "2 weeks",
+  "3 weeks",
+  "1 month",
+  "2 months",
+  "3 months",
+  "6 months",
+  "Ongoing (until review)",
 ];
 
 const PHARMACY_STATUS = {
@@ -52,7 +87,7 @@ function PrescriptionModal({ onClose, onSaved, doctorName, existing = null, pref
 
   // ── Medications ──────────────────────────────────────────
   const [medications, setMedications] = useState(
-    existing?.medications?.length ? existing.medications : [{ name: "", dosage: "", duration: "" }]
+    existing?.medications?.length ? existing.medications : [{ name: "", drugId: "", dosage: "", duration: "" }]
   );
 
   // ── Lab tests (new only) ─────────────────────────────────
@@ -67,7 +102,7 @@ function PrescriptionModal({ onClose, onSaved, doctorName, existing = null, pref
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState("");
 
-  const addMedication    = () => setMedications([...medications, { name: "", dosage: "", duration: "" }]);
+  const addMedication    = () => setMedications([...medications, { name: "", drugId: "", dosage: "", duration: "" }]);
   const removeMedication = (i) => setMedications(medications.filter((_, idx) => idx !== i));
   const updateMed = (i, field, val) => {
     const updated = [...medications];
@@ -80,7 +115,13 @@ function PrescriptionModal({ onClose, onSaved, doctorName, existing = null, pref
   const handleSubmit = async () => {
     setError("");
     if (!patientName.trim()) return setError("Patient name is required.");
-    if (medications.some(m => !m.name.trim() || !m.dosage.trim() || !m.duration.trim()))
+    // Strip zero-width space used as custom-mode sentinel before validation
+    const cleanedMeds = medications.map(m => ({
+      ...m,
+      dosage:   m.dosage.replace(/​/g, "").trim(),
+      duration: m.duration.replace(/​/g, "").trim(),
+    }));
+    if (cleanedMeds.some(m => !m.name.trim() || !m.dosage || !m.duration))
       return setError("Please fill in all medication fields.");
     if (!isEdit && otherChecked && !otherText.trim())
       return setError("Please describe the custom lab test.");
@@ -96,8 +137,8 @@ function PrescriptionModal({ onClose, onSaved, doctorName, existing = null, pref
         patientName:   patientName.trim(),
         patientId:     patientId || undefined,
         channelingNo:  channelingNo.trim(),
-        appointmentId: appointmentId.trim() || undefined,   // ← NEW field
-        medications,
+        appointmentId: appointmentId.trim() || undefined,
+        medications:   cleanedMeds,
         clinicalNotes: clinicalNotes.trim(),
         ...(!isEdit && {
           labTests,
@@ -259,34 +300,76 @@ function PrescriptionModal({ onClose, onSaved, doctorName, existing = null, pref
                       <label className="block text-xs text-gray-500 mb-1">
                         Medicine Name & Strength <span className="text-red-400">*</span>
                       </label>
-                      <input
+                      <DrugSearchInput
                         value={med.name}
-                        onChange={e => updateMed(i, "name", e.target.value)}
-                        placeholder="e.g. Metformin 500mg"
-                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition bg-white"
+                        onChange={(name, drugId, drugObj) => {
+                          updateMed(i, "name", name);
+                          updateMed(i, "drugId", drugId || "");
+                        }}
+                        placeholder="Search pharmacy catalog or type name…"
                       />
                     </div>
                     <div className="col-span-2">
                       <label className="block text-xs text-gray-500 mb-1">
                         Dosage Instructions <span className="text-red-400">*</span>
                       </label>
-                      <input
-                        value={med.dosage}
-                        onChange={e => updateMed(i, "dosage", e.target.value)}
-                        placeholder="e.g. 1 tablet twice daily"
+                      <select
+                        value={DOSAGE_OPTIONS.includes(med.dosage) ? med.dosage : ""}
+                        onChange={e => {
+                          if (e.target.value === "__custom__") {
+                            updateMed(i, "dosage", "​"); // zero-width space triggers custom mode
+                          } else {
+                            updateMed(i, "dosage", e.target.value);
+                          }
+                        }}
                         className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition bg-white"
-                      />
+                      >
+                        <option value="">Select dosage instructions…</option>
+                        {DOSAGE_OPTIONS.map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                        <option value="__custom__">✏️  Type custom instructions…</option>
+                      </select>
+                      {(!DOSAGE_OPTIONS.includes(med.dosage) && med.dosage !== "") && (
+                        <input
+                          value={med.dosage.replace(/​/g, "")}
+                          onChange={e => updateMed(i, "dosage", e.target.value || "​")}
+                          placeholder="Type custom dosage instructions…"
+                          autoFocus
+                          className="mt-1.5 w-full px-3 py-2 rounded-lg border border-blue-300 bg-blue-50 text-sm text-blue-900 placeholder-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                        />
+                      )}
                     </div>
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">
                         Duration <span className="text-red-400">*</span>
                       </label>
-                      <input
-                        value={med.duration}
-                        onChange={e => updateMed(i, "duration", e.target.value)}
-                        placeholder="e.g. 7 days"
+                      <select
+                        value={DURATION_OPTIONS.includes(med.duration) ? med.duration : ""}
+                        onChange={e => {
+                          if (e.target.value === "__custom__") {
+                            updateMed(i, "duration", "​");
+                          } else {
+                            updateMed(i, "duration", e.target.value);
+                          }
+                        }}
                         className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition bg-white"
-                      />
+                      >
+                        <option value="">Select duration…</option>
+                        {DURATION_OPTIONS.map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                        <option value="__custom__">✏️  Type custom duration…</option>
+                      </select>
+                      {(!DURATION_OPTIONS.includes(med.duration) && med.duration !== "") && (
+                        <input
+                          value={med.duration.replace(/​/g, "")}
+                          onChange={e => updateMed(i, "duration", e.target.value || "​")}
+                          placeholder="e.g. 10 days, 45 days…"
+                          autoFocus
+                          className="mt-1.5 w-full px-3 py-2 rounded-lg border border-blue-300 bg-blue-50 text-sm text-blue-900 placeholder-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -440,6 +523,85 @@ function PrescriptionModal({ onClose, onSaved, doctorName, existing = null, pref
 }
 
 // ══════════════════════════════════════════════════════════════
+// Cancel Confirmation Modal
+// Shows when doctor clicks "Cancel Rx".
+// If the prescription has a linked lab request, offers the choice
+// to cancel it too — otherwise just confirms the prescription delete.
+// ══════════════════════════════════════════════════════════════
+function CancelModal({ rx, labRequest, onConfirm, onClose }) {
+  const [cancelLab, setCancelLab] = useState(false);
+  const hasLab = !!rx.labRequestRef;
+
+  // If lab is already in_progress or completed we can't delete it —
+  // show a note instead of the checkbox
+  const labIsLocked = labRequest && labRequest !== "loading" && labRequest?.status !== "pending";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+
+        {/* Header */}
+        <div className="px-6 pt-6 pb-4">
+          <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center mb-4">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-6 h-6 text-red-500">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+            </svg>
+          </div>
+          <h3 className="font-bold text-gray-800 text-base">Cancel Prescription?</h3>
+          <p className="text-sm text-gray-500 mt-1">
+            <span className="font-mono text-blue-600">{rx.prescriptionId}</span> for <strong>{rx.patientName}</strong> will be permanently deleted.
+          </p>
+        </div>
+
+        {/* Lab request option */}
+        {hasLab && (
+          <div className="mx-6 mb-4">
+            {labIsLocked ? (
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
+                <span className="text-lg flex-shrink-0">🧪</span>
+                <div>
+                  <p className="text-xs font-semibold text-amber-800">Lab request cannot be cancelled</p>
+                  <p className="text-xs text-amber-600 mt-0.5">
+                    <span className="font-mono">{rx.labRequestRef}</span> is already {labRequest?.status?.replace("_", " ")} — the lab staff are working on it.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <label className="flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition hover:bg-gray-50 select-none"
+                style={{ borderColor: cancelLab ? "#EF4444" : "#E5E7EB", background: cancelLab ? "#FEF2F2" : "" }}>
+                <input
+                  type="checkbox"
+                  checked={cancelLab}
+                  onChange={e => setCancelLab(e.target.checked)}
+                  className="mt-0.5 accent-red-500 w-4 h-4 flex-shrink-0"
+                />
+                <div>
+                  <p className="text-sm font-semibold text-gray-700">Also cancel the linked lab request</p>
+                  <p className="text-xs text-gray-500 mt-0.5 font-mono">{rx.labRequestRef}</p>
+                </div>
+              </label>
+            )}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex gap-3 px-6 pb-6">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+            Keep
+          </button>
+          <button onClick={() => onConfirm(cancelLab && !labIsLocked)}
+            className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition hover:opacity-90"
+            style={{ background: "linear-gradient(135deg, #DC2626, #EF4444)" }}>
+            {cancelLab && !labIsLocked ? "Cancel Both" : "Cancel Prescription"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
 // Main Page
 // ══════════════════════════════════════════════════════════════
 export default function DoctorPrescriptions() {
@@ -456,6 +618,7 @@ export default function DoctorPrescriptions() {
   const [prefillData,   setPrefillData]   = useState(null);  // from dashboard "Start"
   const [expandTarget,  setExpandTarget]  = useState(null);  // RX ID from ?open= param
   const [cancelling,    setCancelling]    = useState(null);
+  const [cancelTarget,  setCancelTarget]  = useState(null); // rx being confirmed for cancel
   const [toast,         setToast]         = useState(null);
 
   // DOM refs per card — used to scroll the opened card into view
@@ -464,6 +627,8 @@ export default function DoctorPrescriptions() {
   // Cache of fetched lab requests, keyed by prescription._id
   // Prevents re-fetching when user collapses and re-expands the same card
   const [labCache, setLabCache] = useState({});
+  // Cache of lab results (TR-xxx) keyed by prescription._id
+  const [labResultsCache, setLabResultsCache] = useState({});
 
   const doctorName = (() => {
     try { return JSON.parse(localStorage.getItem("user"))?.name || "Doctor"; } catch { return "Doctor"; }
@@ -496,10 +661,22 @@ export default function DoctorPrescriptions() {
       };
       setPrefillData(data);
       setShowModal(true);
-
-      // Clean the URL so refreshing doesn't re-trigger the modal
       navigate("/doctor/prescriptions", { replace: true });
     }
+  }, [location.search, navigate]);
+
+  // ── Read ?open=RX-xxxx — set expandTarget so the card auto-expands ──
+  // Separate from the prefill effect so both can coexist cleanly.
+  useEffect(() => {
+    const params  = new URLSearchParams(location.search);
+    const openRxId = params.get("open");
+    if (!openRxId) return;
+
+    // Clean URL immediately so refresh doesn't re-trigger
+    navigate("/doctor/prescriptions", { replace: true });
+
+    // Store the target — a second effect resolves it once prescriptions load
+    setExpandTarget(openRxId);
   }, [location.search, navigate]);
 
   // ── Once prescriptions load, resolve any pending expandTarget ──
@@ -539,6 +716,10 @@ export default function DoctorPrescriptions() {
       .then(res => {
         const lr = res.data.labRequest || res.data;
         setLabCache(prev => ({ ...prev, [expandedId]: lr }));
+        // Also fetch any lab results linked to this lab request
+        api.get(`/lab-results?labRequestRef=${rx.labRequestRef}`)
+          .then(r2 => { const all = r2.data.results || []; const filtered = all.filter(r => r.labRequestRef === rx.labRequestRef); setLabResultsCache(prev => ({ ...prev, [expandedId]: filtered })); })
+          .catch(() => setLabResultsCache(prev => ({ ...prev, [expandedId]: [] })));
       })
       .catch(() => {
         // On error, store null so we show a fallback instead of blank
@@ -556,16 +737,45 @@ export default function DoctorPrescriptions() {
     }
   };
 
-  const handleCancel = async (id) => {
-    if (!window.confirm("Cancel this prescription? It will be permanently removed.")) return;
-    setCancelling(id);
+  // Opens the cancel confirmation modal for the given prescription
+  const handleCancel = (rx) => {
+    setCancelTarget(rx);
+  };
+
+  // Called by CancelModal when doctor confirms
+  // cancelLabToo: boolean — whether to also delete the linked lab request
+  const handleConfirmCancel = async (cancelLabToo) => {
+    const rx = cancelTarget;
+    setCancelTarget(null);
+    setCancelling(rx._id);
     try {
-      await api.delete(`/prescriptions/${id}/cancel`);
-      setPrescriptions(prev => prev.filter(p => p._id !== id));
-      showToast("Prescription removed");
+      await api.delete(`/prescriptions/${rx._id}/cancel`, {
+        data: { cancelLabToo },
+      });
+
+      // Remove prescription from list
+      setPrescriptions(prev => prev.filter(p => p._id !== rx._id));
+
+      // If lab was also cancelled, remove it from the cache so
+      // it doesn't show stale data if the user opens another Rx
+      if (cancelLabToo) {
+        setLabCache(prev => {
+          const next = { ...prev };
+          delete next[rx._id];
+          return next;
+        });
+      }
+
+      showToast(
+        cancelLabToo
+          ? "Prescription and lab request removed"
+          : "Prescription removed"
+      );
     } catch (err) {
       showToast(err.response?.data?.message || "Failed to cancel", "error");
-    } finally { setCancelling(null); }
+    } finally {
+      setCancelling(null);
+    }
   };
 
   const handleCloseModal = () => {
@@ -597,7 +807,17 @@ export default function DoctorPrescriptions() {
         </div>
       )}
 
-      {/* Modal — new, edit, or prefilled from dashboard */}
+      {/* Cancel confirmation modal — asks about lab request if one is linked */}
+      {cancelTarget && (
+        <CancelModal
+          rx={cancelTarget}
+          labRequest={labCache[cancelTarget._id]}
+          onConfirm={handleConfirmCancel}
+          onClose={() => setCancelTarget(null)}
+        />
+      )}
+
+      {/* Prescription modal — new, edit, or prefilled from dashboard */}
       {(showModal || editRx) && (
         <PrescriptionModal
           onClose={handleCloseModal}
@@ -715,7 +935,7 @@ export default function DoctorPrescriptions() {
                     </div>
                     <div className="hidden md:block text-xs text-gray-400">{formatDateTime(rx.createdAt)}</div>
                     <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${pStatus.class}`}>
-                      {pStatus.label}
+                      💊 {pStatus.label}
                     </span>
                     <svg viewBox="0 0 20 20" fill="currentColor"
                       className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${isExpanded ? "rotate-180" : ""}`}>
@@ -776,7 +996,13 @@ export default function DoctorPrescriptions() {
                                   <div className="w-6 h-6 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0 text-sm">🧪</div>
                                   <div className="flex-1 min-w-0">
                                     <span className="text-xs font-semibold text-blue-800">Lab Request Linked</span>
-                                    <span className="ml-2 font-mono text-xs text-blue-600">{rx.labRequestRef}</span>
+                                    <button
+                                      onClick={() => navigate(`/doctor/lab-requests?open=${rx.labRequestRef}`)}
+                                      className="ml-2 font-mono text-xs text-blue-600 hover:text-blue-800 hover:underline transition"
+                                      title="View this lab request"
+                                    >
+                                      {rx.labRequestRef}
+                                    </button>
                                   </div>
                                   {labSt && (
                                     <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border flex-shrink-0 ${labSt.class}`}>
@@ -803,61 +1029,82 @@ export default function DoctorPrescriptions() {
                                   </div>
                                 )}
 
-                                {cachedLab && cachedLab !== "loading" && (
-                                  <div className="bg-white px-4 py-3 space-y-2.5">
-                                    {/* Priority + date */}
-                                    <div className="flex items-center gap-3 text-xs text-gray-500">
-                                      <span className={`px-2 py-0.5 rounded-full font-medium border ${
-                                        cachedLab.priority === "Urgent"
-                                          ? "bg-red-50 text-red-600 border-red-200"
-                                          : "bg-gray-50 text-gray-600 border-gray-200"
-                                      }`}>
-                                        {cachedLab.priority || "Routine"}
-                                      </span>
-                                      <span>Requested {new Date(cachedLab.createdAt).toLocaleDateString("en-GB", { day:"2-digit", month:"short" })}</span>
-                                    </div>
-
-                                    {/* Tests list */}
-                                    <div>
-                                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Tests Ordered</p>
-                                      <div className="flex flex-wrap gap-1.5">
-                                        {cachedLab.tests?.map((t, i) => (
-                                          <div key={i} className={`text-xs px-2.5 py-1 rounded-full border font-medium ${
-                                            t.isOther
-                                              ? "bg-amber-50 text-amber-700 border-amber-200"
-                                              : "bg-blue-50 text-blue-700 border-blue-100"
-                                          }`}>
-                                            {t.name}
-                                            {/* If test has a result, show a green checkmark */}
-                                            {t.result && <span className="ml-1 text-green-500">✓</span>}
-                                          </div>
-                                        ))}
+                                {cachedLab && cachedLab !== "loading" && (() => {
+                                  const labResults = labResultsCache[rx._id] || [];
+                                  const LAB_RESULT_STATUS = {
+                                    payment_pending: { label:"Payment Pending", cls:"bg-gray-100 text-gray-600 border-gray-200",  dot:"bg-gray-400"   },
+                                    pre_check:       { label:"Pre-Check",        cls:"bg-purple-100 text-purple-700 border-purple-200", dot:"bg-purple-500" },
+                                    sample_received: { label:"Sample Received",  cls:"bg-blue-100 text-blue-700 border-blue-200",   dot:"bg-blue-500"   },
+                                    in_progress:     { label:"In Progress",      cls:"bg-amber-100 text-amber-700 border-amber-200", dot:"bg-amber-500"  },
+                                    completed:       { label:"Completed",        cls:"bg-green-100 text-green-700 border-green-200", dot:"bg-green-500"  },
+                                  };
+                                  return (
+                                    <div className="bg-white px-4 py-3 space-y-2.5">
+                                      {/* Priority + date */}
+                                      <div className="flex items-center gap-3 text-xs text-gray-500">
+                                        <span className={`px-2 py-0.5 rounded-full font-medium border ${
+                                          cachedLab.priority === "Urgent"
+                                            ? "bg-red-50 text-red-600 border-red-200"
+                                            : "bg-gray-50 text-gray-600 border-gray-200"
+                                        }`}>
+                                          {cachedLab.priority || "Routine"}
+                                        </span>
+                                        <span>Requested {new Date(cachedLab.createdAt).toLocaleDateString("en-GB", { day:"2-digit", month:"short" })}</span>
                                       </div>
-                                    </div>
 
-                                    {/* Results section — only if any test has result */}
-                                    {cachedLab.tests?.some(t => t.result) && (
+                                      {/* Tests list with per-test result status */}
                                       <div>
-                                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Results</p>
-                                        <div className="space-y-1">
-                                          {cachedLab.tests.filter(t => t.result).map((t, i) => (
-                                            <div key={i} className="flex items-start gap-2 text-xs bg-green-50 border border-green-100 rounded-lg px-3 py-2">
-                                              <span className="font-semibold text-gray-700 min-w-0 flex-shrink-0">{t.name}:</span>
-                                              <span className="text-gray-600 break-words">{t.result}</span>
-                                            </div>
-                                          ))}
+                                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Tests Ordered</p>
+                                        <div className="space-y-1.5">
+                                          {cachedLab.tests?.map((t, i) => {
+                                            // Find matching result for this test name
+                                            const matchResult = labResults.find(r => (r.testName === t.name || r.testName?.toLowerCase() === t.name?.toLowerCase()) && r.labRequestRef === rx.labRequestRef);
+                                            const stCfg = matchResult ? (LAB_RESULT_STATUS[matchResult.status] || LAB_RESULT_STATUS.in_progress) : null;
+                                            const isCompleted = matchResult?.status === "completed";
+                                            const isFlagged   = matchResult?.results?.parameters?.some(p => ["High","Low","Positive","Reactive"].includes(p.flag));
+                                            return (
+                                              <div key={i} className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg border text-xs ${isCompleted ? "bg-green-50 border-green-100" : "bg-gray-50 border-gray-100"}`}>
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                  <span className={`font-medium ${t.isOther ? "text-amber-700" : "text-gray-700"}`}>
+                                                    {t.isOther ? "★ " : "🧪 "}{t.name}
+                                                  </span>
+                                                  {isFlagged && <span className="text-xs text-red-500 font-semibold">⚠️ Abnormal</span>}
+                                                </div>
+                                                {matchResult ? (
+                                                  isCompleted ? (
+                                                    <button
+                                                      onClick={(e) => { e.stopPropagation(); navigate(`/doctor/lab-results?open=${matchResult.testId}`); }}
+                                                      className="flex items-center gap-1.5 text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-full hover:bg-teal-100 transition flex-shrink-0"
+                                                    >
+                                                      <span className="font-mono">{matchResult.testId}</span>
+                                                      <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3"><path fillRule="evenodd" d="M6.293 3.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L8.586 9H2a1 1 0 110-2h6.586L6.293 4.707a1 1 0 010-1.414z" clipRule="evenodd"/></svg>
+                                                    </button>
+                                                  ) : (
+                                                    <span className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border flex-shrink-0 ${stCfg?.cls || "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                                                      <span className={`w-1.5 h-1.5 rounded-full ${stCfg?.dot || "bg-gray-400"}`}/>
+                                                      {stCfg?.label || "Pending"}
+                                                    </span>
+                                                  )
+                                                ) : (
+                                                  <span className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border bg-amber-50 text-amber-700 border-amber-200 flex-shrink-0">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400"/>Pending
+                                                  </span>
+                                                )}
+                                              </div>
+                                            );
+                                          })}
                                         </div>
                                       </div>
-                                    )}
 
-                                    {/* Clinical notes */}
-                                    {cachedLab.clinicalNotes && (
-                                      <div className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
-                                        📝 {cachedLab.clinicalNotes}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
+                                      {/* Clinical notes */}
+                                      {cachedLab.clinicalNotes && (
+                                        <div className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
+                                          📝 {cachedLab.clinicalNotes}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             );
                           })()}
@@ -878,7 +1125,7 @@ export default function DoctorPrescriptions() {
                                 </svg>
                                 Edit
                               </button>
-                              <button onClick={() => handleCancel(rx._id)} disabled={cancelling === rx._id}
+                              <button onClick={() => handleCancel(rx)} disabled={cancelling === rx._id}
                                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-red-200 text-red-500 text-xs font-semibold hover:bg-red-50 transition disabled:opacity-60">
                                 {cancelling === rx._id ? "Cancelling…" : "Cancel Rx"}
                               </button>

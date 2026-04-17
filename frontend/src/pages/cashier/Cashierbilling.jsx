@@ -58,7 +58,7 @@ function ReceiptModal({ sale, onClose, onMarkPaid }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="px-6 py-5 flex items-center justify-between"
-          style={{ background: "linear-gradient(135deg, #0D2137, #2E7D32)" }}>
+          style={{ background: "linear-gradient(135deg, #0D2137, #01579B)" }}>
           <div>
             <p className="text-white/60 text-xs">Receipt</p>
             <h3 className="text-white font-bold text-lg" style={{ fontFamily: "'Playfair Display', serif" }}>{sale.id}</h3>
@@ -116,7 +116,7 @@ function ReceiptModal({ sale, onClose, onMarkPaid }) {
             <div className="flex justify-between text-sm text-gray-600"><span>Subtotal</span><span>LKR {sale.subtotal.toLocaleString()}</span></div>
             {sale.discount > 0 && <div className="flex justify-between text-sm text-green-600"><span>Discount</span><span>- LKR {sale.discount.toLocaleString()}</span></div>}
             <div className="border-t border-gray-200 pt-2 flex justify-between font-bold text-base text-gray-800">
-              <span>Total</span><span style={{ color: "#2E7D32" }}>LKR {sale.total.toLocaleString()}</span>
+              <span>Total</span><span style={{ color: "#01579B" }}>LKR {sale.total.toLocaleString()}</span>
             </div>
             {sale.paid && <div className="text-xs text-gray-400 text-right">Payment: {sale.method}</div>}
           </div>
@@ -135,7 +135,7 @@ function ReceiptModal({ sale, onClose, onMarkPaid }) {
               </div>
               <button onClick={() => { onMarkPaid(sale.id, method); onClose(); }}
                 className="w-full py-3 rounded-xl text-white text-sm font-semibold shadow-lg transition hover:opacity-90"
-                style={{ background: "linear-gradient(135deg, #2E7D32, #00897B)" }}>
+                style={{ background: "linear-gradient(135deg, #01579B, #0277BD)" }}>
                 💳 Collect Payment — LKR {sale.total.toLocaleString()}
               </button>
             </div>
@@ -191,7 +191,7 @@ export default function CashierBilling() {
         {/* Summary */}
         <div className="grid md:grid-cols-4 gap-4">
           {[
-            { label: "Today's Collections", value: `LKR ${todayRevenue.toLocaleString()}`,  sub: `${todaySales.filter(s=>s.paid).length} sales`,        icon: "💰", color: "#2E7D32", bg: "#E8F5E9" },
+            { label: "Today's Collections", value: `LKR ${todayRevenue.toLocaleString()}`,  sub: `${todaySales.filter(s=>s.paid).length} sales`,        icon: "💰", color: "#01579B", bg: "#E1F5FE" },
             { label: "Total Revenue",        value: `LKR ${totalRevenue.toLocaleString()}`,  sub: "All time paid",                                         icon: "📈", color: "#1565C0", bg: "#E3F2FD" },
             { label: "Outstanding",          value: `LKR ${unpaidTotal.toLocaleString()}`,   sub: `${sales.filter(s=>!s.paid).length} unpaid`,             icon: "⏳", color: "#B71C1C", bg: "#FFEBEE" },
             { label: "Total Transactions",   value: sales.length,                            sub: "All records",                                           icon: "🧾", color: "#37474F", bg: "#ECEFF1" },
@@ -212,13 +212,13 @@ export default function CashierBilling() {
           <div className="bg-green-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
             <span className="text-xl flex-shrink-0">⚠️</span>
             <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-800">Outstanding Payments</p>
-              <p className="text-xs text-amber-700 mt-1">
+              <p className="text-sm font-semibold text-blue-900">Outstanding Payments</p>
+              <p className="text-xs text-blue-800 mt-1">
                 {sales.filter(s=>!s.paid).length} bill(s) pending — <strong>LKR {unpaidTotal.toLocaleString()}</strong> to collect.
               </p>
             </div>
             <button onClick={() => setFilter("Unpaid")}
-              className="flex-shrink-0 text-xs font-semibold px-4 py-2 rounded-xl bg-amber-700 text-white hover:bg-amber-800 transition">
+              className="flex-shrink-0 text-xs font-semibold px-4 py-2 rounded-xl bg-blue-700 text-white hover:bg-blue-800 transition">
               View Unpaid
             </button>
           </div>
@@ -237,7 +237,7 @@ export default function CashierBilling() {
             {["All","Paid","Unpaid"].map(f => (
               <button key={f} onClick={() => setFilter(f)}
                 className={`px-4 py-2 rounded-xl text-sm font-medium transition ${filter === f ? "text-white shadow-md" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-                style={filter === f ? { background: "linear-gradient(135deg, #2E7D32, #00897B)" } : {}}>
+                style={filter === f ? { background: "linear-gradient(135deg, #01579B, #0277BD)" } : {}}>
                 {f}
               </button>
             ))}
@@ -247,10 +247,10 @@ export default function CashierBilling() {
         {/* Sales list */}
         <div className="space-y-3">
           {filtered.map(sale => (
-            <div key={sale.id} className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition overflow-hidden ${!sale.paid ? "border-amber-100" : "border-gray-100"}`}>
+            <div key={sale.id} className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition overflow-hidden ${!sale.paid ? "border-blue-100" : "border-gray-100"}`}>
               <div className="flex items-center gap-4 px-6 py-4">
                 <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                  style={{ background: sale.paid ? "linear-gradient(135deg, #2E7D32, #00897B)" : "#9CA3AF" }}>
+                  style={{ background: sale.paid ? "linear-gradient(135deg, #01579B, #0277BD)" : "#9CA3AF" }}>
                   {sale.patient.split(" ").map(n=>n[0]).join("").slice(0,2)}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -263,13 +263,13 @@ export default function CashierBilling() {
                   <div className="text-xs text-gray-400 mt-0.5">{sale.date} · {sale.time} · {sale.id}</div>
                 </div>
                 <div className="text-right flex-shrink-0 mr-4">
-                  <div className="text-base font-bold" style={{ color: sale.paid ? "#2E7D32" : "#B71C1C" }}>
+                  <div className="text-base font-bold" style={{ color: sale.paid ? "#01579B" : "#B71C1C" }}>
                     LKR {sale.total.toLocaleString()}
                   </div>
                   {sale.discount > 0 && <div className="text-xs text-green-600">- LKR {sale.discount.toLocaleString()} disc.</div>}
                 </div>
                 <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                  <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${sale.paid ? "bg-green-100 text-green-700 border-green-200" : "bg-amber-100 text-green-700 border-amber-200"}`}>
+                  <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${sale.paid ? "bg-green-100 text-green-700 border-green-200" : "bg-blue-100 text-green-700 border-amber-200"}`}>
                     {sale.paid ? "✅ Paid" : "⏳ Unpaid"}
                   </span>
                   <button onClick={() => setSelected(sale)} className="text-xs font-semibold text-green-700 hover:underline">

@@ -33,7 +33,7 @@ export default function AdminPatients() {
         {/* Stats */}
         <div className="grid grid-cols-4 gap-4">
           {[
-            { label: "Total Patients",   value: PATIENTS.length,                                    color: "#B45309", bg: "#FEF3C7" },
+            { label: "Total Patients",   value: PATIENTS.length,                                    color: "#1A237E", bg: "#E8EAF6" },
             { label: "Active This Month",value: PATIENTS.filter(p => p.lastVisit.includes("Feb")).length, color: "#1565C0", bg: "#E3F2FD" },
             { label: "Female",           value: PATIENTS.filter(p => p.gender === "Female").length, color: "#EC4899", bg: "#FCE7F3" },
             { label: "Male",             value: PATIENTS.filter(p => p.gender === "Male").length,   color: "#00897B", bg: "#E0F2F1" },
@@ -52,13 +52,13 @@ export default function AdminPatients() {
               <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"/>
             </svg>
             <input type="text" placeholder="Search by name or patient ID…" value={search} onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 transition" />
+              className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 transition" />
           </div>
           <div className="flex gap-2">
             {["All", "Male", "Female"].map(g => (
               <button key={g} onClick={() => setGender(g)}
                 className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${genderFilter === g ? "text-white shadow-md" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-                style={genderFilter === g ? { background: "linear-gradient(135deg, #B45309, #D97706)" } : {}}>
+                style={genderFilter === g ? { background: "linear-gradient(135deg, #1A237E, #283593)" } : {}}>
                 {g}
               </button>
             ))}
@@ -81,7 +81,7 @@ export default function AdminPatients() {
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-2">
                       <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                        style={{ background: "linear-gradient(135deg, #B45309, #D97706)" }}>
+                        style={{ background: "linear-gradient(135deg, #1A237E, #283593)" }}>
                         {p.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                       </div>
                       <div>

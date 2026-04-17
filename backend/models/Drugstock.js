@@ -52,7 +52,7 @@ drugStockSchema.statics.generateStockId = async function () {
 // ── Static: get total available stock for a drug ─────────────────
 // Returns summed remainingQty across all active, non-expired batches
 drugStockSchema.statics.getTotalStock = async function (drugId) {
-  const result = await this.aggregate([ //Use Aggregation to sum remainingQty of active, non-expired batches for the drug
+  const result = await this.aggregate([
     {
       $match: {
         drug: new mongoose.Types.ObjectId(drugId),
@@ -62,7 +62,7 @@ drugStockSchema.statics.getTotalStock = async function (drugId) {
     },
     { $group: { _id: null, total: { $sum: '$remainingQty' } } },
   ]);
-  return result[0]?.total ?? 0;// Return 0 if no active stock found
+  return result[0]?.total ?? 0;
 };
 
 // ── Static: deduct stock using FEFO (First Expiry First Out) ─────

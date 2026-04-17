@@ -1,6 +1,7 @@
 import api from './api';
 
 const authService = {
+
   register: async (userData) => {
     const response = await api.post('/auth/register', userData);
     if (response.data.success) {
@@ -10,8 +11,8 @@ const authService = {
     return response.data;
   },
 
-  login: async (email, password) => {
-    const response = await api.post('/auth/login', { email, password });
+  login: async (identifier, password) => {
+    const response = await api.post('/auth/login', { identifier, password });
     if (response.data.success) {
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
@@ -37,6 +38,7 @@ const authService = {
     const response = await api.get('/auth/me');
     return response.data;
   },
+
 };
 
 export default authService;

@@ -1,5 +1,5 @@
-import Drug from "../models/Drug.js";
-import DrugStock from "../models/DrugStock.js";
+import Drug      from '../models/Drug.js';
+import DrugStock from '../models/DrugStock.js';
 
 // ═══════════════════════════════════════════════════════════════
 //  STOCK CONTROLLER  –  Pharmacist manages stock entries per drug
@@ -10,70 +10,40 @@ import DrugStock from "../models/DrugStock.js";
 // Body: { drugId, receivedQty, expiryDate, unitPrice?, manufacturedDate? }
 export const addStock = async (req, res) => {
   try {
-    const { drugId, receivedQty, expiryDate, unitPrice, manufacturedDate } =
-      req.body;
+    const { drugId, receivedQty, expiryDate, unitPrice, manufacturedDate } = req.body;
 
-    if (!drugId)
-      return res
-        .status(400)
-        .json({ success: false, message: "drugId is required" });
-    if (!receivedQty)
-      return res
-        .status(400)
-        .json({ success: false, message: "receivedQty is required" });
-    if (!expiryDate)
-      return res
-        .status(400)
-        .json({ success: false, message: "expiryDate is required" });
+    if (!drugId)      return res.status(400).json({ success: false, message: 'drugId is required' });
+    if (!receivedQty) return res.status(400).json({ success: false, message: 'receivedQty is required' });
+    if (!expiryDate)  return res.status(400).json({ success: false, message: 'expiryDate is required' });
 
     if (isNaN(receivedQty) || receivedQty <= 0)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "receivedQty must be a positive number",
-        });
+      return res.status(400).json({ success: false, message: 'receivedQty must be a positive number' });
 
     if (isNaN(Date.parse(expiryDate)))
-      return res
-        .status(400)
-        .json({ success: false, message: "expiryDate must be a valid date" });
+      return res.status(400).json({ success: false, message: 'expiryDate must be a valid date' });
 
     if (new Date(expiryDate) <= new Date())
-      return res
-        .status(400)
-        .json({ success: false, message: "expiryDate must be in the future" });
+      return res.status(400).json({ success: false, message: 'expiryDate must be in the future' });
 
-    if (new Date(manufacturedDate) > new Date()) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "manufacturedDate cannot be in the future",
-        });
-    }
     const drug = await Drug.findById(drugId);
-    if (!drug)
-      return res
-        .status(404)
-        .json({ success: false, message: "Drug not found" });
+    if (!drug) return res.status(404).json({ success: false, message: 'Drug not found' });
 
     const stockId = await DrugStock.generateStockId();
 
     const stock = await DrugStock.create({
       stockId,
-      drug: drugId,
-      receivedQty: Number(receivedQty),
-      remainingQty: Number(receivedQty),
-      unitPrice: unitPrice ?? drug.unitPrice,
-      expiryDate: new Date(expiryDate),
+      drug:             drugId,
+      receivedQty:      Number(receivedQty),
+      remainingQty:     Number(receivedQty),
+      unitPrice:        unitPrice ?? drug.unitPrice,
+      expiryDate:       new Date(expiryDate),
       manufacturedDate: manufacturedDate ? new Date(manufacturedDate) : null,
-      addedBy: req.user._id,
+      addedBy:          req.user._id,
     });
 
     const populated = await DrugStock.findById(stock._id)
-      .populate("drug", "drugId name brand form strength unit")
-      .populate("addedBy", "name");
+      .populate('drug', 'drugId name brand form strength unit')
+      .populate('addedBy', 'name');
 
     res.status(201).json({
       success: true,
@@ -81,10 +51,8 @@ export const addStock = async (req, res) => {
       stock: populated,
     });
   } catch (error) {
-    console.error("addStock error:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Server error", error: error.message });
+    console.error('addStock error:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
 
@@ -96,7 +64,7 @@ export const getAllStocks = async (req, res) => {
     const { drugId, status, expiringSoon, limit = 200 } = req.query;
     const filter = {};
 
-    if (drugId) filter.drug = drugId;
+    if (drugId) filter.drug   = drugId;
     if (status) filter.status = status;
 
     if (expiringSoon) {
@@ -104,22 +72,20 @@ export const getAllStocks = async (req, res) => {
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() + days);
       filter.expiryDate = { $lte: cutoff, $gt: new Date() };
-      filter.status = "active";
+      filter.status = 'active';
     }
 
     const stocks = await DrugStock.find(filter)
       .sort({ expiryDate: 1 })
       .limit(parseInt(limit))
-      .populate("drug", "drugId name brand form strength unit reorderLevel")
-      .populate("addedBy", "name")
-      .populate("lastUpdatedBy", "name");
+      .populate('drug', 'drugId name brand form strength unit reorderLevel')
+      .populate('addedBy', 'name')
+      .populate('lastUpdatedBy', 'name');
 
     res.status(200).json({ success: true, count: stocks.length, stocks });
   } catch (error) {
-    console.error("getAllStocks error:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Server error", error: error.message });
+    console.error('getAllStocks error:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
 
@@ -128,35 +94,25 @@ export const getAllStocks = async (req, res) => {
 export const getStocksByDrug = async (req, res) => {
   try {
     const drug = await Drug.findById(req.params.drugId);
-    if (!drug)
-      return res
-        .status(404)
-        .json({ success: false, message: "Drug not found" });
+    if (!drug) return res.status(404).json({ success: false, message: 'Drug not found' });
 
-    const stocks = await DrugStock.find({ drug: req.params.drugId })
+    const stocks     = await DrugStock.find({ drug: req.params.drugId })
       .sort({ expiryDate: 1 })
-      .populate("addedBy", "name");
+      .populate('addedBy', 'name');
 
     const totalStock = await DrugStock.getTotalStock(req.params.drugId);
 
     res.status(200).json({
       success: true,
-      drug: {
-        _id: drug._id,
-        drugId: drug.drugId,
-        name: drug.name,
-        reorderLevel: drug.reorderLevel,
-      },
+      drug: { _id: drug._id, drugId: drug.drugId, name: drug.name, reorderLevel: drug.reorderLevel },
       totalStock,
       isLowStock: totalStock <= drug.reorderLevel,
       count: stocks.length,
       stocks,
     });
   } catch (error) {
-    console.error("getStocksByDrug error:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Server error", error: error.message });
+    console.error('getStocksByDrug error:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
 
@@ -165,26 +121,19 @@ export const getStocksByDrug = async (req, res) => {
 export const getStock = async (req, res) => {
   try {
     if (!/^[a-f\d]{24}$/i.test(req.params.id))
-      return res
-        .status(400)
-        .json({ success: false, message: `Invalid id: "${req.params.id}"` });
+      return res.status(400).json({ success: false, message: `Invalid id: "${req.params.id}"` });
 
     const stock = await DrugStock.findById(req.params.id)
-      .populate("drug", "drugId name brand form strength unit")
-      .populate("addedBy", "name")
-      .populate("lastUpdatedBy", "name");
+      .populate('drug', 'drugId name brand form strength unit')
+      .populate('addedBy', 'name')
+      .populate('lastUpdatedBy', 'name');
 
-    if (!stock)
-      return res
-        .status(404)
-        .json({ success: false, message: "Stock entry not found" });
+    if (!stock) return res.status(404).json({ success: false, message: 'Stock entry not found' });
 
     res.status(200).json({ success: true, stock });
   } catch (error) {
-    console.error("getStock error:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Server error", error: error.message });
+    console.error('getStock error:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
 
@@ -194,26 +143,12 @@ export const getStock = async (req, res) => {
 export const updateStock = async (req, res) => {
   try {
     const stock = await DrugStock.findById(req.params.id);
-    if (!stock)
-      return res
-        .status(404)
-        .json({ success: false, message: "Stock entry not found" });
+    if (!stock) return res.status(404).json({ success: false, message: 'Stock entry not found' });
 
-    if (stock.status === "exhausted")
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Cannot edit an exhausted stock entry",
-        });
+    if (stock.status === 'exhausted')
+      return res.status(400).json({ success: false, message: 'Cannot edit an exhausted stock entry' });
 
-    const allowedFields = [
-      "unitPrice",
-      "expiryDate",
-      "manufacturedDate",
-      "receivedDate",
-      "status",
-    ];
+    const allowedFields = ['unitPrice', 'expiryDate', 'manufacturedDate', 'receivedDate', 'status'];
     allowedFields.forEach((field) => {
       if (req.body[field] !== undefined) stock[field] = req.body[field];
     });
@@ -221,14 +156,10 @@ export const updateStock = async (req, res) => {
     stock.lastUpdatedBy = req.user._id;
     await stock.save();
 
-    res
-      .status(200)
-      .json({ success: true, message: "Stock entry updated", stock });
+    res.status(200).json({ success: true, message: 'Stock entry updated', stock });
   } catch (error) {
-    console.error("updateStock error:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Server error", error: error.message });
+    console.error('updateStock error:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
 
@@ -237,25 +168,19 @@ export const updateStock = async (req, res) => {
 export const deleteStock = async (req, res) => {
   try {
     const stock = await DrugStock.findById(req.params.id);
-    if (!stock)
-      return res
-        .status(404)
-        .json({ success: false, message: "Stock entry not found" });
+    if (!stock) return res.status(404).json({ success: false, message: 'Stock entry not found' });
 
     if (stock.remainingQty !== stock.receivedQty)
       return res.status(400).json({
         success: false,
-        message:
-          "Cannot delete a stock entry that has already been partially dispensed",
+        message: 'Cannot delete a stock entry that has already been partially dispensed',
       });
 
     await stock.deleteOne();
-    res.status(200).json({ success: true, message: "Stock entry deleted" });
+    res.status(200).json({ success: true, message: 'Stock entry deleted' });
   } catch (error) {
-    console.error("deleteStock error:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Server error", error: error.message });
+    console.error('deleteStock error:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
 
@@ -272,10 +197,8 @@ export const getStockDashboard = async (req, res) => {
     const totalDrugs = await Drug.countDocuments({ isActive: true });
 
     // All active stocks
-    const activeStocks = await DrugStock.find({ status: "active" }).populate(
-      "drug",
-      "drugId name brand form strength unit reorderLevel unitPrice",
-    );
+    const activeStocks = await DrugStock.find({ status: 'active' })
+      .populate('drug', 'drugId name brand form strength unit reorderLevel unitPrice');
 
     // Build per-drug totals
     const drugTotalMap = {};
@@ -284,42 +207,35 @@ export const getStockDashboard = async (req, res) => {
       if (!id) continue;
       if (!drugTotalMap[id]) {
         drugTotalMap[id] = {
-          drug: entry.drug,
-          totalStock: 0,
+          drug:         entry.drug,
+          totalStock:   0,
           reorderLevel: entry.drug.reorderLevel,
         };
       }
       drugTotalMap[id].totalStock += entry.remainingQty;
     }
 
-    const drugTotals = Object.values(drugTotalMap);
-    const lowStock = drugTotals.filter(
-      (d) => d.totalStock <= d.reorderLevel && d.totalStock > 0,
-    );
-    const outOfStock = drugTotals.filter((d) => d.totalStock === 0);
+    const drugTotals  = Object.values(drugTotalMap);
+    const lowStock    = drugTotals.filter((d) => d.totalStock <= d.reorderLevel && d.totalStock > 0);
+    const outOfStock  = drugTotals.filter((d) => d.totalStock === 0);
 
     // Expiring soon (within 30 days)
     const expiringSoon = await DrugStock.find({
-      status: "active",
+      status: 'active',
       expiryDate: { $gt: now, $lte: in30Days },
     })
       .sort({ expiryDate: 1 })
-      .populate("drug", "drugId name brand form strength unit");
+      .populate('drug', 'drugId name brand form strength unit');
 
     // Already expired but not yet marked (safety catch)
     const expiredCount = await DrugStock.countDocuments({
-      status: "expired",
+      status: 'expired',
     });
 
     // Total stock value
     const valueAgg = await DrugStock.aggregate([
-      { $match: { status: "active" } },
-      {
-        $group: {
-          _id: null,
-          totalValue: { $sum: { $multiply: ["$remainingQty", "$unitPrice"] } },
-        },
-      },
+      { $match: { status: 'active' } },
+      { $group: { _id: null, totalValue: { $sum: { $multiply: ['$remainingQty', '$unitPrice'] } } } },
     ]);
     const totalStockValue = valueAgg[0]?.totalValue ?? 0;
 
@@ -327,20 +243,18 @@ export const getStockDashboard = async (req, res) => {
       success: true,
       dashboard: {
         totalDrugs,
-        totalLowStock: lowStock.length,
-        totalOutOfStock: outOfStock.length,
+        totalLowStock:    lowStock.length,
+        totalOutOfStock:  outOfStock.length,
         totalExpiringSoon: expiringSoon.length,
-        totalExpired: expiredCount,
+        totalExpired:     expiredCount,
         totalStockValue,
-        lowStockDrugs: lowStock,
-        outOfStockDrugs: outOfStock,
+        lowStockDrugs:    lowStock,
+        outOfStockDrugs:  outOfStock,
         expiringSoon,
       },
     });
   } catch (error) {
-    console.error("getStockDashboard error:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Server error", error: error.message });
+    console.error('getStockDashboard error:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };

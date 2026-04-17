@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import PharmacyLayout from "../../components/PharmacyLayout";
-import InventoryPDFButton from "../../components/Inventorypdfbutton.jsx";
+import InventoryPDFButton from "../../components/InventoryPDFButton";
 
 const API   = "http://localhost:5001/api";
 const token = () => sessionStorage.getItem("token");
@@ -8,18 +8,6 @@ const authHeaders = () => ({ "Content-Type": "application/json", Authorization: 
 
 const CATEGORIES = ["All","Antibiotic","Analgesic","Antifungal","Antiviral","Antihypertensive","Antidiabetic","Antihistamine","Vitamin","Supplement","Other"];
 const FORMS      = ["Tablet","Capsule","Syrup","Injection","Cream","Drops","Inhaler","Other"];
-
-// ── Strength presets by form ──────────────────────────────────────
-const CAPSULE_MG_STRENGTHS = [
-  "50mg","100mg","150mg","200mg","250mg","300mg","400mg","500mg",
-  "600mg","750mg","875mg","1000mg","1g","2g",
-];
-const SYRUP_ML_STRENGTHS = [
-  "5mg/5ml","10mg/5ml","20mg/5ml","25mg/5ml","50mg/5ml",
-  "100mg/5ml","125mg/5ml","200mg/5ml","250mg/5ml","500mg/5ml",
-  "1mg/ml","2mg/ml","5mg/ml","10mg/ml",
-];
-const FORMS_WITH_PRESET_STRENGTH = ["Capsule", "Syrup"];
 
 const cls = "w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 transition bg-white";
 
@@ -174,37 +162,11 @@ function DrugFormModal({ drug, onClose, onSaved }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Lbl t="Form *" />
-              <select className={cls} value={drugForm} onChange={e => { setDrugForm(e.target.value); setStrength(""); }}>
+              <select className={cls} value={drugForm} onChange={e => setDrugForm(e.target.value)}>
                 {FORMS.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
-            <div>
-              <Lbl t="Strength *" />
-              {drugForm === "Capsule" ? (
-                <select className={cls} value={strength === "__custom__" ? "__custom__" : strength} onChange={e => setStrength(e.target.value)}>
-                  <option value="">— Select mg strength —</option>
-                  {CAPSULE_MG_STRENGTHS.map(s => <option key={s} value={s}>{s}</option>)}
-                  <option value="__custom__">Other (type below)</option>
-                </select>
-              ) : drugForm === "Syrup" ? (
-                <select className={cls} value={strength === "__custom__" ? "__custom__" : strength} onChange={e => setStrength(e.target.value)}>
-                  <option value="">— Select ml strength —</option>
-                  {SYRUP_ML_STRENGTHS.map(s => <option key={s} value={s}>{s}</option>)}
-                  <option value="__custom__">Other (type below)</option>
-                </select>
-              ) : (
-                <input className={cls} type="text" value={strength} onChange={e => setStrength(e.target.value)} placeholder="e.g. 500mg" />
-              )}
-              {strength === "__custom__" && (
-                <input
-                  className={`${cls} mt-2`}
-                  type="text"
-                  placeholder={drugForm === "Syrup" ? "e.g. 300mg/5ml" : "e.g. 1250mg"}
-                  onBlur={e => { if (e.target.value.trim()) setStrength(e.target.value.trim()); }}
-                  autoFocus
-                />
-              )}
-            </div>
+            <div><Lbl t="Strength *" /><input className={cls} type="text" value={strength} onChange={e => setStrength(e.target.value)} placeholder="e.g. 500mg" /></div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -251,14 +213,6 @@ function AddStockModal({ drug, onClose, onAdded }) {
   const handleAdd = async () => {
     if (!receivedQty || Number(receivedQty) <= 0) { setError("Enter a valid quantity > 0."); return; }
     if (!expiryDate)                               { setError("Expiry date is required.");   return; }
-    const today     = new Date(); today.setHours(0,0,0,0);
-    const expDate   = new Date(expiryDate);
-    if (expDate <= today) { setError("Expiry date must be a future date."); return; }
-    if (manufacturedDate) {
-      const mfgDate = new Date(manufacturedDate);
-      if (mfgDate >= expDate) { setError("Manufacture date must be before the expiry date."); return; }
-      if (mfgDate > today)    { setError("Manufacture date cannot be in the future."); return; }
-    }
     setLoading(true); setError("");
     try {
       const payload = {
@@ -318,6 +272,14 @@ function AddStockModal({ drug, onClose, onAdded }) {
               </p>
             </div>
           </div>
+
+          {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl">{error}</div>}
+
+          <div><Lbl t="Quantity Received" req /><input className={cls} type="number" min="1" value={receivedQty} onChange={e => setReceivedQty(e.target.value)} placeholder="e.g. 200" /></div>
+
+          <div><Lbl t="Expiry Date" req /><input className={cls} type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} /></div>
+
+          <div><Lbl t="Manufactured Date" /><input className={cls} type="date" value={manufacturedDate} onChange={e => setManufacturedDate(e.target.value)} /></div>
 
           {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl">{error}</div>}
 
