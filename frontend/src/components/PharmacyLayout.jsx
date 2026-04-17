@@ -1,5 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { usePharmacyNotifications } from "../hooks/usePharmacyNotifications";
+import { formatTimeAgo, getNotificationColors, getStatusBadge } from "../utils/notificationUtils";
+
+const API   = "http://localhost:5001/api";
+const token = () => sessionStorage.getItem("token");
+const authH = () => ({ Authorization: `Bearer ${token()}` });
 
 const NAV_ITEMS = [
   {
@@ -17,7 +23,7 @@ const NAV_ITEMS = [
   {
     label: "Dispensing Queue",
     href: "/pharmacy/queue",
-    badge: "4",
+    badgeKey: "pendingCount", // resolved dynamically
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
         <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -35,11 +41,9 @@ const NAV_ITEMS = [
   },
 ];
 
-// Emerald green accent for pharmacy
 const ACCENT_FROM = "#263238";
 const ACCENT_TO   = "#37474F";
 
-// ── Logout Confirmation Modal ──────────────────────────────────
 function LogoutModal({ onConfirm, onCancel }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -69,9 +73,35 @@ function LogoutModal({ onConfirm, onCancel }) {
 
 export default function PharmacyLayout({ children, activePage = "Dashboard" }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [notifOpen, setNotifOpen] = useState(false);
-  const [showLogout, setShowLogout] = useState(false);
+  const [notifOpen,   setNotifOpen]   = useState(false);
+  const [showLogout,  setShowLogout]  = useState(false);
+  const [pendingCount, setPendingCount] = useState(null); // null = loading
   const navigate = useNavigate();
+  
+  // Use the new notifications hook
+  const { notifications, summary, loading: notifLoading } = usePharmacyNotifications();
+
+  // Fetch real pending count + refresh every 30 seconds
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchCount = async () => {
+      try {
+        const res  = await fetch(`${API}/pharmacy/dashboard`, { headers: authH() });
+        const data = await res.json();
+        if (!cancelled && data.success) {
+          const pending = data.dashboard?.prescriptionQueue?.pending ?? 0;
+          setPendingCount(pending);
+        }
+      } catch {
+        // silently keep previous count on network error
+      }
+    };
+
+    fetchCount(); // immediate on mount
+    const interval = setInterval(fetchCount, 30000); // every 30s
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
 
   const handleLogout = () => {
     sessionStorage.removeItem("token");
@@ -87,7 +117,7 @@ export default function PharmacyLayout({ children, activePage = "Dashboard" }) {
     <div style={{ fontFamily: "'DM Sans', sans-serif" }} className="flex h-screen bg-gray-50 overflow-hidden">
       {showLogout && <LogoutModal onConfirm={handleLogout} onCancel={() => setShowLogout(false)} />}
 
-      {/* ── SIDEBAR — same navy as all other portals ── */}
+      {/* ── SIDEBAR ── */}
       <aside
         className={`relative flex flex-col text-white transition-all duration-300 flex-shrink-0 ${sidebarOpen ? "w-64" : "w-20"}`}
         style={{ background: "linear-gradient(180deg, #0D2137 0%, #0a1a2e 100%)" }}
@@ -128,20 +158,39 @@ export default function PharmacyLayout({ children, activePage = "Dashboard" }) {
         <nav className="flex-1 px-3 mt-6 space-y-1 overflow-y-auto">
           {NAV_ITEMS.map((item) => {
             const isActive = activePage === item.label;
+
+            // Resolve badge value
+            let badgeValue = null;
+            if (item.badgeKey === "pendingCount" && pendingCount !== null && pendingCount > 0) {
+              badgeValue = pendingCount > 99 ? "99+" : String(pendingCount);
+            }
+
             return (
               <a key={item.label} href={item.href}
                 className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                   isActive ? "text-white shadow-lg" : "text-white/60 hover:bg-white/10 hover:text-white"
                 } ${!sidebarOpen ? "justify-center" : ""}`}
                 style={isActive ? { background: `linear-gradient(135deg, ${ACCENT_FROM}, ${ACCENT_TO})` } : {}}>
-                <span className="flex-shrink-0">{item.icon}</span>
+                <span className="flex-shrink-0 relative">
+                  {item.icon}
+                  {/* Collapsed sidebar: show dot badge on icon */}
+                  {!sidebarOpen && badgeValue && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                      {pendingCount > 9 ? "9+" : badgeValue}
+                    </span>
+                  )}
+                </span>
                 {sidebarOpen && (
                   <>
                     <span className="flex-1">{item.label}</span>
-                    {item.badge && (
-                      <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full font-bold min-w-[20px] text-center">
-                        {item.badge}
+                    {badgeValue && (
+                      <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full font-bold min-w-[20px] text-center transition-all">
+                        {badgeValue}
                       </span>
+                    )}
+                    {/* Show pulsing dot while loading */}
+                    {item.badgeKey === "pendingCount" && pendingCount === null && (
+                      <span className="w-2 h-2 rounded-full bg-white/30 animate-pulse" />
                     )}
                   </>
                 )}
@@ -161,7 +210,7 @@ export default function PharmacyLayout({ children, activePage = "Dashboard" }) {
           </button>
         </div>
 
-        {/* ── Sidebar collapse toggle ── */}
+        {/* Sidebar collapse toggle */}
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-10 rounded-full bg-[#0D2137] border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:border-white/30 transition-all duration-200 shadow-lg z-10"
@@ -191,29 +240,101 @@ export default function PharmacyLayout({ children, activePage = "Dashboard" }) {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
                   <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
                 </svg>
-                <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500" />
+                {(summary.total > 0) && (
+                  <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500" />
+                )}
               </button>
               {notifOpen && (
-                <div className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
-                  <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                <div className="absolute right-0 top-12 w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden max-h-[600px] flex flex-col">
+                  {/* Header */}
+                  <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50">
                     <span className="font-semibold text-sm text-gray-800">Notifications</span>
-                    <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">2 new</span>
+                    {summary.total > 0 && (
+                      <span className="text-xs bg-red-100 text-red-600 px-2.5 py-1 rounded-full font-medium">
+                        {summary.total} {summary.total === 1 ? "alert" : "alerts"}
+                      </span>
+                    )}
                   </div>
-                  {[
-                    { icon: "💊", msg: "Rx RX-2026-0089 ready to dispense — Kamal Perera", time: "10 min ago" },
-                    { icon: "⚠️", msg: "Low stock: Metformin 500mg — 18 tablets remaining", time: "1 hr ago" },
-                    { icon: "✅", msg: "RX-2026-0071 dispensed successfully", time: "Yesterday" },
-                  ].map((n, i) => (
-                    <div key={i} className="flex items-start gap-3 p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-50 transition">
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0 bg-emerald-50">
-                        {n.icon}
+
+                  {/* Notifications List */}
+                  <div className="flex-1 overflow-y-auto">
+                    {notifLoading ? (
+                      <div className="p-6 text-center text-gray-400">
+                        <div className="animate-spin inline-block w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full"></div>
+                        <p className="mt-2 text-sm">Loading notifications...</p>
                       </div>
-                      <div>
-                        <div className="text-sm text-gray-700 font-medium">{n.msg}</div>
-                        <div className="text-xs text-gray-400 mt-0.5">{n.time}</div>
+                    ) : notifications.length === 0 ? (
+                      <div className="p-6 text-center">
+                        <div className="text-3xl mb-2">📭</div>
+                        <p className="text-sm text-gray-500">No notifications yet</p>
                       </div>
+                    ) : (
+                      notifications.map((notif, index) => {
+                        const colors = getNotificationColors(notif.type);
+                        const statusBadge = notif.type === "prescription" ? getStatusBadge(notif.status) : null;
+
+                        return (
+                          <div 
+                            key={`${notif.id}-${index}`}
+                            className={`p-4 border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition ${colors.bg}`}
+                            onClick={() => {
+                              if (notif.type === "prescription") {
+                                setNotifOpen(false);
+                                navigate("/pharmacy/queue");
+                              }
+                            }}
+                          >
+                            <div className="flex items-start gap-3">
+                              {/* Icon */}
+                              <div className="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0 bg-white">
+                                {notif.icon}
+                              </div>
+
+                              {/* Content */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <div className="text-sm font-semibold text-gray-800 truncate">
+                                    {notif.message}
+                                  </div>
+                                  {statusBadge && (
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${statusBadge.bg} ${statusBadge.text}`}>
+                                      {statusBadge.label}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-500">{notif.details}</p>
+                                <p className="text-xs text-gray-400 mt-1">
+                                  {formatTimeAgo(notif.time)}
+                                </p>
+
+                                {/* Low stock specific info */}
+                                {notif.type === "low_stock" && notif.expiryDate && (
+                                  <p className="text-xs text-orange-600 mt-1">
+                                    Expires: {new Date(notif.expiryDate).toLocaleDateString()}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  {notifications.length > 0 && (
+                    <div className="p-3 border-t border-gray-100 bg-gray-50">
+                      <button
+                        onClick={() => {
+                          setNotifOpen(false);
+                          navigate("/pharmacy/queue");
+                        }}
+                        className="w-full text-xs font-medium text-blue-600 hover:text-blue-700 py-1 px-2 rounded hover:bg-blue-50 transition"
+                      >
+                        View All →
+                      </button>
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
             </div>
