@@ -15,7 +15,18 @@ import userRoutes         from './routes/users.js';
 import patientRoutes      from './routes/patients.js';
 import prescriptionRoutes from './routes/Prescriptions.js';
 import labRequestRoutes   from './routes/labRequests.js';
+import feedbackRoutes        from './routes/Feedback.js';
 import publicRoutes       from './routes/public.js';
+
+// ── NLP Chatbot route ─────────────────────────────────────────────
+import chatbotRoutes     from './routes/chatbot.js';
+
+// ── Pharmacy & billing routes ────────────────────────────────────
+import pharmacyRoutes from './routes/Pharmacy.js';
+import billRoutes        from './routes/Bills.js';
+import patientBillRoutes from './routes/Patientbills.js';
+import labBillRoutes     from './routes/Labbills.js';
+import turnoverRoutes    from './routes/Turnoverreports.js';
 
 // Load environment variables
 dotenv.config();
@@ -67,8 +78,19 @@ app.use('/api/users',         userRoutes);
 app.use('/api/patients',      patientRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/lab-requests',  labRequestRoutes);
+app.use('/api/feedback',      feedbackRoutes);
 app.use('/api/public',        publicRoutes);
 app.use('/api/appointments', appointmentRoutes);
+
+// Pharmacy & billing routes
+app.use('/api/pharmacy', pharmacyRoutes);
+app.use('/api/bills',            billRoutes);
+app.use('/api/patient-bills',    patientBillRoutes);
+app.use('/api/lab-bills',        labBillRoutes);
+app.use('/api/turnover-reports', turnoverRoutes);
+
+// NLP Chatbot route (public — no auth required)
+app.use('/api/chatbot',          chatbotRoutes);
 
 // 404 handler
 app.use((req, res) => {
