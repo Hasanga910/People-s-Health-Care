@@ -10,10 +10,11 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
 
 const NAV_LINKS = [
   { label: "Home",       href: "#home"     },
-  { label: "About",      href: "#about"    },
-  { label: "Services",   href: "#services" },
-  { label: "Our Doctor", href: "#doctor"   },
-  { label: "Contact",    href: "#contact"  },
+  { label: "About",      href: "#about"        },
+  { label: "Services",   href: "#services"     },
+  { label: "Our Doctor", href: "#doctor"       },
+  { label: "Testimonials", href: "#testimonials" },
+  { label: "Contact",    href: "#contact"      },
 ];
 
 const SERVICES = [
@@ -59,12 +60,7 @@ const SERVICES = [
   },
 ];
 
-const STATS = [
-  { number: "5000+", label: "Patients Treated" },
-  { number: "15+",   label: "Years of Experience" },
-  { number: "98%",   label: "Patient Satisfaction" },
-  { number: "24/7",  label: "Emergency Support" },
-];
+// STATS is now built dynamically inside the component using live doctorExp
 
 // ── Slideshow slides ──────────────────────────────────────────
 const SLIDES = [
@@ -184,10 +180,146 @@ function Slideshow({ dark = false }) {
   );
 }
 
+// ── QUICK-REPLY SUGGESTIONS ──────────────────────────────────────
+const QUICK_REPLIES = [
+  "How do I book an appointment?",
+  "How can I view my lab results?",
+  "Where can I see my prescriptions?",
+  "How do I cancel an appointment?",
+  "How do I check my bills?",
+];
+
+// ── CHATBOT FLOATING WIDGET ──────────────────────────────────────
+function ChatBot({ apiBase }) {
+  const [open, setOpen]         = useState(false);
+  const [messages, setMessages] = useState([
+    {
+      role: "bot",
+      text: "👋 Hello! I'm your navigation assistant for People's Health Care. Ask me anything about the system.",
+    },
+  ]);
+  const [input, setInput]   = useState("");
+  const [loading, setLoading] = useState(false);
+  const [unread, setUnread] = useState(0);
+  const bottomRef           = useRef(null);
+  const inputRef            = useRef(null);
+
+  useEffect(() => {
+    if (open) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, open]);
+
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+      setUnread(0);
+    }
+  }, [open]);
+
+  const sendMessage = async (text) => {
+    const userText = (text || input).trim();
+    if (!userText || loading) return;
+    setMessages(prev => [...prev, { role: "user", text: userText }]);
+    setInput("");
+    setLoading(true);
+    try {
+      const res = await axios.post(`${apiBase}/chatbot/message`, { message: userText });
+      const botReply = res.data.reply || "I'm sorry, I couldn't process that. Please try again.";
+      setMessages(prev => [...prev, { role: "bot", text: botReply }]);
+      if (!open) setUnread(n => n + 1);
+    } catch {
+      setMessages(prev => [...prev, { role: "bot", text: "Sorry, the assistant is temporarily unavailable. Please try again shortly." }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleKey = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  };
+
+  return (
+    <>
+      <style>{`
+        @keyframes chatSlideUp { from { opacity:0; transform:translateY(16px) scale(0.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+        @keyframes botDot { 0%,80%,100% { transform:scale(0.6); opacity:0.4; } 40% { transform:scale(1); opacity:1; } }
+      `}</style>
+
+      {open && (
+        <div style={{ position:"fixed", bottom:96, right:24, zIndex:1000, width:"min(370px, calc(100vw - 48px))", borderRadius:20, background:"white", boxShadow:"0 20px 60px rgba(13,33,55,0.18)", display:"flex", flexDirection:"column", overflow:"hidden", animation:"chatSlideUp 0.22s ease" }}>
+          {/* Header */}
+          <div style={{ background:"linear-gradient(135deg,#0D2137,#1565C0)", padding:"15px 18px", display:"flex", alignItems:"center", gap:10 }}>
+            <div style={{ width:36, height:36, borderRadius:11, background:"rgba(255,255,255,0.15)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:17 }}>🏥</div>
+            <div style={{ flex:1 }}>
+              <div style={{ color:"white", fontWeight:700, fontSize:13.5, fontFamily:"'Playfair Display', serif" }}>PHC Navigation Assistant</div>
+              <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:2 }}>
+                <div style={{ width:6, height:6, borderRadius:"50%", background:"#4ADE80" }}/>
+                <span style={{ color:"rgba(255,255,255,0.7)", fontSize:10.5 }}>Online — ask me anything</span>
+              </div>
+            </div>
+            <button onClick={() => setOpen(false)} style={{ background:"rgba(255,255,255,0.15)", border:"none", borderRadius:8, width:28, height:28, cursor:"pointer", color:"white", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
+          </div>
+
+          {/* Messages */}
+          <div style={{ flex:1, overflowY:"auto", padding:"14px 14px 8px", maxHeight:300, display:"flex", flexDirection:"column", gap:10, background:"#FAFBFD" }}>
+            {messages.map((msg, i) => (
+              <div key={i} style={{ display:"flex", justifyContent:msg.role==="user"?"flex-end":"flex-start", gap:7, alignItems:"flex-end" }}>
+                {msg.role==="bot" && <div style={{ width:26, height:26, borderRadius:"50%", background:"linear-gradient(135deg,#1565C0,#00ACC1)", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12 }}>🤖</div>}
+                <div style={{ maxWidth:"76%", padding:"9px 13px", borderRadius:msg.role==="user"?"16px 16px 4px 16px":"16px 16px 16px 4px", background:msg.role==="user"?"linear-gradient(135deg,#1565C0,#00ACC1)":"white", color:msg.role==="user"?"white":"#1E293B", fontSize:13, lineHeight:1.55, whiteSpace:"pre-wrap", wordBreak:"break-word", boxShadow:"0 1px 3px rgba(0,0,0,0.06)" }}>
+                  {msg.text}
+                </div>
+              </div>
+            ))}
+            {loading && (
+              <div style={{ display:"flex", alignItems:"flex-end", gap:7 }}>
+                <div style={{ width:26, height:26, borderRadius:"50%", background:"linear-gradient(135deg,#1565C0,#00ACC1)", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12 }}>🤖</div>
+                <div style={{ background:"white", borderRadius:"16px 16px 16px 4px", padding:"10px 14px", display:"flex", gap:5, alignItems:"center", boxShadow:"0 1px 3px rgba(0,0,0,0.06)" }}>
+                  {[0,0.2,0.4].map((d,i)=><div key={i} style={{ width:7, height:7, borderRadius:"50%", background:"#94A3B8", animation:`botDot 1.2s ${d}s infinite` }}/>)}
+                </div>
+              </div>
+            )}
+            <div ref={bottomRef}/>
+          </div>
+
+          {/* Quick replies */}
+          {messages.length <= 2 && !loading && (
+            <div style={{ padding:"0 14px 8px", display:"flex", flexWrap:"wrap", gap:5, background:"#FAFBFD" }}>
+              {QUICK_REPLIES.slice(0,3).map((q,i) => (
+                <button key={i} onClick={() => sendMessage(q)} style={{ fontSize:11, padding:"4px 10px", borderRadius:20, border:"1px solid #CBD5E1", background:"white", color:"#1565C0", cursor:"pointer", fontWeight:500 }}>
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Input */}
+          <div style={{ padding:"10px 14px 14px", borderTop:"1px solid #E2E8F0", display:"flex", gap:8, alignItems:"flex-end" }}>
+            <textarea ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={handleKey} placeholder="Ask about appointments, results…" rows={1} style={{ flex:1, resize:"none", border:"1.5px solid #E2E8F0", borderRadius:11, padding:"8px 12px", fontSize:13, fontFamily:"inherit", outline:"none", lineHeight:1.5, maxHeight:72, overflowY:"auto", color:"#0F172A" }} onFocus={e=>e.target.style.borderColor="#1565C0"} onBlur={e=>e.target.style.borderColor="#E2E8F0"}/>
+            <button onClick={()=>sendMessage()} disabled={!input.trim()||loading} style={{ width:36, height:36, borderRadius:11, border:"none", cursor:input.trim()&&!loading?"pointer":"not-allowed", background:input.trim()&&!loading?"linear-gradient(135deg,#1565C0,#00ACC1)":"#E2E8F0", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              <svg viewBox="0 0 20 20" fill={input.trim()&&!loading?"white":"#94A3B8"} style={{ width:15, height:15 }}>
+                <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* FAB */}
+      <button onClick={()=>setOpen(o=>!o)} style={{ position:"fixed", bottom:28, right:24, zIndex:1001, width:56, height:56, borderRadius:"50%", border:"none", cursor:"pointer", background:open?"#0D2137":"linear-gradient(135deg,#1565C0,#00ACC1)", boxShadow:"0 8px 28px rgba(21,101,192,0.4)", display:"flex", alignItems:"center", justifyContent:"center", transition:"all 0.22s", transform:open?"rotate(45deg)":"rotate(0deg)" }} title={open?"Close chat":"Ask navigation assistant"}>
+        {open
+          ? <svg viewBox="0 0 20 20" fill="white" style={{ width:20, height:20 }}><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/></svg>
+          : <svg viewBox="0 0 24 24" fill="white" style={{ width:24, height:24 }}><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.37 5.06L2 22l4.94-1.37C8.42 21.5 10.15 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm-1 13H7v-2h4v2zm6 0h-4v-2h4v2zm0-4H7V9h10v2z"/></svg>
+        }
+        {!open && unread > 0 && <div style={{ position:"absolute", top:-3, right:-3, background:"#EF4444", color:"white", borderRadius:"50%", width:19, height:19, fontSize:10.5, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", border:"2px solid white" }}>{unread}</div>}
+      </button>
+    </>
+  );
+}
+
 export default function Index() {
-  const [scrolled, setScrolled]   = useState(false);
-  const [menuOpen, setMenuOpen]   = useState(false);
-  const [doctor, setDoctor]       = useState(null);
+  const [scrolled, setScrolled]         = useState(false);
+  const [menuOpen, setMenuOpen]         = useState(false);
+  const [doctor, setDoctor]             = useState(null);
+  const [testimonials, setTestimonials] = useState([]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
@@ -202,22 +334,57 @@ export default function Index() {
       .catch(() => {}); // silently fall back to static data
   }, []);
 
+  // Fetch mixed-rating feedback for testimonials section
+  useEffect(() => {
+    axios.get(`${API}/feedback/public/mixed`)
+      .then(res => {
+        const all = res.data.feedbacks || [];
+        setTestimonials(all);
+      })
+      .catch(() => {});
+  }, []);
+
   const doctorName = doctor?.name || "Dr. M.T.D. Jayaweera";
   const doctorExp  = doctor?.doctorDetails?.workingExperience || "15+";
   const doctorPhone = doctor?.telephone || "0777 883 343";
   const doctorPhoto = doctor?.photo || null;
 
+  // Dynamic stats using live doctor experience
+  const STATS = [
+    { number: "5000+", label: "Patients Treated" },
+    { number: doctorExp.toString().includes("+") ? doctorExp : `${doctorExp}+`, label: "Years of Experience" },
+    { number: "98%",   label: "Patient Satisfaction" },
+    { number: "24/7",  label: "Emergency Support" },
+  ];
+
+  // Clinic session status
+  // Morning: 7:00 - 8:00 | Evening: 17:00 - 20:00
+  const getClinicStatus = () => {
+    const now = new Date();
+    const h = now.getHours();
+    const m = now.getMinutes();
+    const total = h * 60 + m;
+    const morningStart = 7 * 60, morningEnd = 8 * 60;
+    const eveningStart = 17 * 60, eveningEnd = 20 * 60;
+    if (total >= morningStart && total < morningEnd) return { open: true, label: "Open Now", sub: "Morning Session" };
+    if (total >= eveningStart && total < eveningEnd) return { open: true, label: "Open Now", sub: "Evening Session" };
+    // Next session
+    if (total < morningStart) return { open: false, label: "Opens at 7:00 AM", sub: "Morning Session" };
+    if (total >= morningEnd && total < eveningStart) return { open: false, label: "Opens at 5:00 PM", sub: "Evening Session" };
+    return { open: false, label: "Opens Tomorrow 7 AM", sub: "Morning Session" };
+  };
+  const clinicStatus = getClinicStatus();
+
   return (
+    <>
     <div style={{ fontFamily: "'DM Sans', sans-serif" }} className="bg-white text-gray-800">
 
       {/* ── NAVBAR ── */}
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? "bg-white shadow-lg py-3" : "bg-transparent py-5"}`}>
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" className="w-5 h-5">
-                <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0016.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 002 8.5c0 2.3 1.5 4.05 3 5.5l7 7z"/>
-              </svg>
+            <div className="w-10 h-10 rounded-xl flex-shrink-0 overflow-hidden">
+              <img src="/Logo.png" alt="PHC" className="w-full h-full object-contain" />
             </div>
             <div>
               <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, color: scrolled ? "#0D2137" : "white", fontSize: "1.1rem", lineHeight: 1 }}>
@@ -315,7 +482,7 @@ export default function Index() {
               </a>
             </div>
             <div className="mt-10 flex flex-wrap gap-3">
-              {["Mon – Sat: 7AM – 7:45AM 4:30PM - 8PM", "Emergency: 24/7", "Matara, Sri Lanka"].map(item => (
+              {["Mon – Sat: 7:00AM – 8:00AM  |  5:00PM – 8:00PM", "Emergency: 24/7", "No 123 Matara - Akuressa Hwy, Matara"].map(item => (
                 <div key={item} className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-1.5">
                   <div className="w-1.5 h-1.5 rounded-full bg-cyan-300"/>
                   <span className="text-white/80 text-xs">{item}</span>
@@ -336,17 +503,18 @@ export default function Index() {
                   ))}
                 </div>
                 <div className="mt-6 p-4 bg-white/10 rounded-2xl border border-white/10 flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #00ACC1, #1565C0)" }}>
-                    <svg viewBox="0 0 24 24" fill="white" className="w-6 h-6"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                  <div className="w-12 h-12 rounded-xl flex-shrink-0 overflow-hidden">
+                    <img src="/Logo.png" alt="PHC" className="w-full h-full object-contain" />
                   </div>
                   <div>
                     <div className="text-white font-semibold text-sm">People's Health Care</div>
-                    <div className="text-white/60 text-xs">Matara, Southern Province, Sri Lanka</div>
+                    <div className="text-white/60 text-xs">No 123 Matara - Akuressa Hwy, Matara</div>
                   </div>
                 </div>
               </div>
-              <div className="absolute -top-4 -right-4 bg-green-400 text-green-900 text-xs font-bold px-4 py-2 rounded-full shadow-lg flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-green-700 animate-pulse"/>Open Now
+              <div className={`absolute -top-4 -right-4 text-xs font-bold px-4 py-2 rounded-full shadow-lg flex items-center gap-1.5 ${clinicStatus.open ? "bg-green-400 text-green-900" : "bg-orange-400 text-orange-900"}`}>
+                <div className={`w-2 h-2 rounded-full animate-pulse ${clinicStatus.open ? "bg-green-700" : "bg-orange-700"}`}/>
+                {clinicStatus.label}
               </div>
             </div>
           </div>
@@ -482,8 +650,8 @@ export default function Index() {
             </p>
             <div className="space-y-4">
               {[
-                { label: "Consultation Hours", value: "Mon – Sat: 8:00 AM – 7:00 PM" },
-                { label: "Location",           value: "Matara, Southern Province, Sri Lanka" },
+                { label: "Consultation Hours", value: "Mon – Sat: 7:00 AM – 8:00 AM  |  5:00 PM – 8:00 PM" },
+                { label: "Location",           value: "No 123 Matara - Akuressa Hwy, Matara" },
                 { label: "Contact",            value: "thilakjayaweera9@gmail.com" },
               ].map(item => (
                 <div key={item.label} className="flex items-start gap-3">
@@ -511,6 +679,90 @@ export default function Index() {
         </div>
       </section>
 
+      {/* ── TESTIMONIALS ── */}
+      {testimonials.length > 0 && (
+        <section id="testimonials" className="py-24 bg-white">
+          <div className="max-w-7xl mx-auto px-6">
+
+            {/* Header */}
+            <div className="text-center mb-14">
+              <p className="text-sm font-semibold tracking-widest uppercase mb-3" style={{ color: "#00ACC1" }}>
+                Patient Stories
+              </p>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "clamp(1.8rem, 3vw, 2.6rem)", color: "#0D2137" }}>
+                What Our Patients Say
+              </h2>
+              <p className="mt-4 text-gray-500 max-w-xl mx-auto text-sm leading-relaxed">
+                Real experiences from patients who trust People's Health Care for their wellbeing.
+              </p>
+              <div className="flex items-center justify-center gap-1 mt-4">
+                <span className="ml-2 text-sm font-semibold text-gray-600">{testimonials.length} patient reviews</span>
+              </div>
+            </div>
+
+            {/* Cards grid */}
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {testimonials.map((fb, i) => {
+                const date = fb.createdAt
+                  ? new Date(fb.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+                  : "";
+                return (
+                  <div key={fb._id || i}
+                    className="relative bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col group"
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      borderTop: `3px solid ${
+                        fb.rating === 5 ? "#1565C0"
+                        : fb.rating === 4 ? "#10B981"
+                        : fb.rating === 3 ? "#F59E0B"
+                        : "#EF4444"
+                      }`,
+                    }}
+                  >
+                    {/* Big quote mark */}
+                    <div className="absolute top-4 right-5 text-6xl font-serif leading-none select-none"
+                      style={{ color: "#EFF6FF" }}>"</div>
+
+                    {/* Stars */}
+                    <div className="flex gap-0.5 mb-4">
+                      {[1,2,3,4,5].map(s => (
+                        <svg key={s} viewBox="0 0 20 20" fill={s <= fb.rating ? "#F59E0B" : "#E5E7EB"} className="w-4 h-4">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
+                      ))}
+                      <span className="ml-1.5 text-xs font-semibold text-amber-600">{fb.rating}.0</span>
+                    </div>
+
+                    {/* Review text */}
+                    <p className="text-gray-600 text-sm leading-relaxed flex-1 mb-6 relative z-10 italic">
+                      "{fb.description}"
+                    </p>
+
+                    {/* Patient footer */}
+                    <div className="flex items-center pt-4 border-t border-gray-100">
+                      <div className="text-xs text-gray-400">{date}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* CTA */}
+            <div className="text-center mt-14">
+              <p className="text-sm text-gray-400 mb-5">Join thousands of satisfied patients at People's Health Care</p>
+              <a href="/login"
+                className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl text-white text-sm font-semibold shadow-lg hover:opacity-90 transition"
+                style={{ background: "linear-gradient(135deg, #0D2137, #1565C0)" }}>
+                Book Your Appointment
+                <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                  <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd"/>
+                </svg>
+              </a>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── CONTACT / APPOINTMENT ── */}
       <section id="contact" className="py-24 relative overflow-hidden"
         style={{ background: "linear-gradient(135deg, #0D2137 0%, #1565C0 100%)" }}>
@@ -534,10 +786,10 @@ export default function Index() {
               </p>
               <div className="mt-8 space-y-5">
                 {[
-                  { icon: "📍", label: "Address", value: "People's Health Care, Matara, Sri Lanka" },
+                  { icon: "📍", label: "Address", value: "No 123 Matara - Akuressa Hwy, Matara" },
                   { icon: "📞", label: "Phone",   value: doctorPhone },
                   { icon: "📧", label: "Email",   value: "thilakjayaweera9@gmail.com" },
-                  { icon: "🕐", label: "Hours",   value: "Mon – Sat: 8:00 AM – 7:00 PM" },
+                  { icon: "🕐", label: "Hours",   value: "Mon – Sat: 7:00 AM – 8:00 AM  |  5:00 PM – 8:00 PM" },
                 ].map(item => (
                   <div key={item.label} className="flex items-start gap-4">
                     <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-lg flex-shrink-0">{item.icon}</div>
@@ -603,8 +855,14 @@ export default function Index() {
               <div className="text-sm space-y-2">
                 <div>📞 {doctorPhone}</div>
                 <div>✉️ thilakjayaweera9@gmail.com</div>
-                <div>📍 Matara, Sri Lanka</div>
-                <div>🕐 Mon–Sat: 8AM–7PM</div>
+                <div>📍 No 123 Matara - Akuressa Hwy, Matara</div>
+                <div className="flex items-start gap-1">
+                  <span>🕐</span>
+                  <div>
+                    <div>Mon–Sat: 7:00AM–8:00AM</div>
+                    <div className="pl-16">5:00PM–8:00PM</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -619,5 +877,9 @@ export default function Index() {
         </div>
       </footer>
     </div>
+
+      {/* ── FLOATING CHATBOT WIDGET ── */}
+      <ChatBot apiBase={API} />
+    </>
   );
 }
