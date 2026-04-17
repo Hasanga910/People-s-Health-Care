@@ -229,6 +229,7 @@ export const markDispensed = async (req, res) => {
 // ── Doctor: cancel (hard delete) ─────────────────────────────
 // Removes the prescription entirely from the DB.
 // Blocked if the pharmacy has already dispensed or started preparing.
+// Optional body flag: { cancelLabToo: true } → also deletes the linked lab request if it's still pending.
 export const cancelPrescription = async (req, res) => {
   try {
     const prescription = await Prescription.findById(req.params.id);
@@ -240,8 +241,27 @@ export const cancelPrescription = async (req, res) => {
     if (prescription.pharmacyStatus === 'in_progress')
       return res.status(400).json({ success: false, message: 'Cannot cancel — pharmacy has started preparing this prescription' });
 
+    let labCancelled = false;
+
+    // Optionally delete the linked lab request too
+    if (req.body?.cancelLabToo && prescription.labRequestId) {
+      const labRequest = await LabRequest.findById(prescription.labRequestId);
+      if (labRequest) {
+        if (labRequest.status === 'pending') {
+          await labRequest.deleteOne();
+          labCancelled = true;
+        }
+        // If lab is already in_progress or completed, we skip silently —
+        // the prescription is still deleted but the lab request stays
+      }
+    }
+
     await prescription.deleteOne();
-    res.status(200).json({ success: true, message: 'Prescription deleted' });
+    res.status(200).json({
+      success: true,
+      message: 'Prescription deleted',
+      labCancelled,  // frontend uses this to update its state
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
