@@ -36,7 +36,7 @@ export default function AdminDashboard() {
 
         {/* Welcome banner */}
         <div className="rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden"
-          style={{ background: "linear-gradient(135deg, #0D2137 0%, #B45309 60%, #D97706 100%)" }}>
+          style={{ background: "linear-gradient(135deg, #0D2137 0%, #1A237E 60%, #283593 100%)" }}>
           <div className="absolute right-0 top-0 bottom-0 w-48 opacity-10">
             <svg viewBox="0 0 200 200" fill="white"><circle cx="150" cy="100" r="90"/><circle cx="40" cy="40" r="50"/></svg>
           </div>
@@ -46,11 +46,11 @@ export default function AdminDashboard() {
               People's Health Care
             </h2>
             <p className="text-white/60 text-sm mt-1">
-              <span className="text-amber-200 font-bold">System running normally</span> · 15 Feb 2026
+              <span className="text-indigo-200 font-bold">System running normally</span> · 15 Feb 2026
             </p>
           </div>
           <div className="relative flex gap-3 flex-shrink-0">
-            <a href="/admin/staff" className="px-5 py-2.5 bg-white text-amber-900 rounded-xl text-sm font-semibold hover:bg-amber-50 transition shadow">
+            <a href="/admin/staff" className="px-5 py-2.5 bg-white text-indigo-900 rounded-xl text-sm font-semibold hover:bg-indigo-50 transition shadow">
               👥 Manage Staff
             </a>
             <a href="/admin/finance" className="px-5 py-2.5 bg-white/10 border border-white/20 text-white rounded-xl text-sm font-medium hover:bg-white/20 transition">
@@ -64,7 +64,7 @@ export default function AdminDashboard() {
           {[
             { label: "Total Patients", value: 62, sub: "+8 this month", icon: "👥", color: "#1565C0", bg: "#E3F2FD", up: true },
             { label: "Consultations Today", value: 19, sub: "84 this month", icon: "📋", color: "#00897B", bg: "#E0F2F1", up: true },
-            { label: "Today's Revenue", value: "LKR 48,200", sub: "+12% vs yesterday", icon: "💰", color: "#B45309", bg: "#FEF3C7", up: true },
+            { label: "Today's Revenue", value: "LKR 48,200", sub: "+12% vs yesterday", icon: "💰", color: "#1A237E", bg: "#E8EAF6", up: true },
             { label: "Active Staff", value: STAFF.length, sub: "All departments", icon: "👤", color: "#7B1FA2", bg: "#F3E5F5", up: false },
           ].map(card => (
             <div key={card.label} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition">
@@ -106,8 +106,8 @@ export default function AdminDashboard() {
                     <div className="w-full rounded-t-xl transition-all" style={{
                       height: `${Math.max(pct * 0.9, 8)}px`,
                       background: isLatest
-                        ? "linear-gradient(180deg, #D97706, #B45309)"
-                        : "rgba(217,119,6,0.25)",
+                        ? "linear-gradient(180deg, #1A237E, #283593)"
+                        : "rgba(26,35,126,0.2)",
                     }} />
                     <span className="text-xs text-gray-400">{m.month}</span>
                   </div>
@@ -121,7 +121,7 @@ export default function AdminDashboard() {
                 { label: "YTD Revenue", val: "LKR 1,899,000" },
               ].map(s => (
                 <div key={s.label} className="p-3 bg-gray-50 rounded-xl text-center">
-                  <div className="text-sm font-bold text-amber-700">{s.val}</div>
+                  <div className="text-sm font-bold text-indigo-700">{s.val}</div>
                   <div className="text-xs text-gray-400 mt-0.5">{s.label}</div>
                 </div>
               ))}
@@ -156,7 +156,7 @@ export default function AdminDashboard() {
               <h3 className="font-semibold text-gray-800 text-sm mb-3">Quick Actions</h3>
               <div className="space-y-2">
                 {[
-                  { label: "Add Staff Member", href: "/admin/staff", icon: "➕", color: "#B45309", bg: "#FEF3C7" },
+                  { label: "Add Staff Member", href: "/admin/staff", icon: "➕", color: "#1A237E", bg: "#E8EAF6" },
                   { label: "View All Appointments", href: "/admin/appointments", icon: "📅", color: "#1565C0", bg: "#E3F2FD" },
                   { label: "Finance Reports", href: "/admin/finance", icon: "📊", color: "#00897B", bg: "#E0F2F1" },
                   { label: "System Settings", href: "/admin/settings", icon: "⚙️", color: "#37474F", bg: "#ECEFF1" },
@@ -180,13 +180,13 @@ export default function AdminDashboard() {
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h3 className="font-semibold text-gray-800">Staff Overview</h3>
-              <a href="/admin/staff" className="text-sm font-medium text-amber-600 hover:underline">Manage →</a>
+              <a href="/admin/staff" className="text-sm font-medium text-indigo-600 hover:underline">Manage →</a>
             </div>
             <div className="divide-y divide-gray-50">
               {STAFF.map(s => (
                 <div key={s.name} className="flex items-center gap-4 px-6 py-3.5 hover:bg-gray-50 transition">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                    style={{ background: "linear-gradient(135deg, #B45309, #D97706)" }}>
+                    style={{ background: "linear-gradient(135deg, #1A237E, #283593)" }}>
                     {s.avatar}
                   </div>
                   <div className="flex-1 min-w-0">

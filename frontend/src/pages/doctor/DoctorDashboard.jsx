@@ -12,7 +12,7 @@ function getGreeting() {
 }
 
 function getDoctorName() {
-  try { return JSON.parse(localStorage.getItem("user"))?.name || "Doctor"; }
+  try { return JSON.parse(sessionStorage.getItem("user"))?.name || "Doctor"; }
   catch { return "Doctor"; }
 }
 
@@ -24,45 +24,16 @@ function formatTime(iso) {
 function formatRelativeTime(iso) {
   if (!iso) return "—";
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (diff < 60)  return "Just now";
-  if (diff < 120) return "1 min ago";
+  if (diff < 60)   return "Just now";
+  if (diff < 120)  return "1 min ago";
   if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
   return formatTime(iso);
 }
 
-// ── Determine which session tab to auto-select based on system time ──
-// morningStart/eveningStart are "HH:MM" strings e.g. "07:00", "17:00"
-// Logic: before midpoint between morning-end and evening-start → Morning tab
-//        from that midpoint onwards → Evening tab
-function detectActiveSession(morningStart = "07:00", eveningStart = "17:00") {
-  const now     = new Date();
-  const nowMins = now.getHours() * 60 + now.getMinutes();
-  const [eH, eM] = eveningStart.split(":").map(Number);
-  const eveningMins = eH * 60 + eM;
-  // Default: before evening session starts → show Morning tab; after → Evening
-  return nowMins < eveningMins ? "Morning" : "Evening";
-}
-
-// ── Check if a session is actively happening RIGHT NOW ─────────
-// Used for the green "live" dot on the tab.
-// morningStart = "07:00", morningEnd = "08:00"
-// eveningStart = "17:00", eveningEnd = "20:00"
-function isSessionLive(session, morningStart, morningEnd, eveningStart, eveningEnd) {
-  const now     = new Date();
-  const nowMins = now.getHours() * 60 + now.getMinutes();
-
-  const toMins = (hhmm) => {
-    const [h, m] = (hhmm || "00:00").split(":").map(Number);
-    return h * 60 + m;
-  };
-
-  if (session === "Morning") {
-    return nowMins >= toMins(morningStart) && nowMins < toMins(morningEnd);
-  }
-  if (session === "Evening") {
-    return nowMins >= toMins(eveningStart) && nowMins < toMins(eveningEnd);
-  }
-  return false;
+// Convert "HH:MM" string → total minutes from midnight
+function toMins(hhmm = "00:00") {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
 }
 
 // Format "HH:MM" → "7:00 AM" / "5:00 PM"
@@ -72,6 +43,47 @@ function fmtSessionTime(hhmm) {
   const suffix = h >= 12 ? "PM" : "AM";
   const h12    = h === 0 ? 12 : h > 12 ? h - 12 : h;
   return `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
+}
+
+// Returns current time in minutes since midnight
+function nowMins() {
+  const n = new Date();
+  return n.getHours() * 60 + n.getMinutes();
+}
+
+// ── Session state machine ──────────────────────────────────────
+// Returns: 'before' | 'live' | 'ended'
+function getSessionPhase(startHHMM, endHHMM) {
+  const now   = nowMins();
+  const start = toMins(startHHMM);
+  const end   = toMins(endHHMM);
+  if (now < start) return "before";
+  if (now < end)   return "live";
+  return "ended";
+}
+
+// ── Auto-detect which tab should be active ─────────────────────
+// Rules:
+//   • During morning session (07:00–08:00)  → Morning tab
+//   • After morning ends, before evening starts → Evening tab  (jump ahead)
+//   • During evening session (17:00–20:00)  → Evening tab
+//   • After evening ends → Evening tab (keep on last session)
+function detectActiveSession(morningStart, morningEnd, eveningStart) {
+  const now = nowMins();
+  // Still within morning window or before morning starts → Morning
+  if (now < toMins(morningEnd)) return "Morning";
+  // Morning ended or evening started / ongoing → Evening
+  return "Evening";
+}
+
+// Format minutes remaining into "Xh Ym" or "Ym"
+function fmtCountdown(startHHMM) {
+  const diff = toMins(startHHMM) - nowMins();
+  if (diff <= 0) return null;
+  const h = Math.floor(diff / 60);
+  const m = diff % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
 }
 
 // ── Status config ──────────────────────────────────────────────
@@ -178,22 +190,48 @@ export default function DoctorDashboard() {
   const doctorName = getDoctorName();
 
   // ── Session config — start & end times ───────────────────────
-  // Defaults match the clinic's fixed schedule:
-  //   Morning  7:00 AM – 8:00 AM
-  //   Evening  5:00 PM – 8:00 PM
   const [morningStart, setMorningStart] = useState("07:00");
   const [morningEnd,   setMorningEnd]   = useState("08:00");
   const [eveningStart, setEveningStart] = useState("17:00");
   const [eveningEnd,   setEveningEnd]   = useState("20:00");
 
-  // ── Active session tab — null while config is loading ─────
+  // ── Active session tab ─────────────────────────────────────
   const [activeSession, setActiveSession] = useState(null);
+
+  // ── Clock tick — re-evaluate session phase every minute ───
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // ── Auto-switch tab when session changes ──────────────────
+  // Runs on every tick and whenever config loads.
+  // Only auto-switches if doctor hasn't manually overridden.
+  const [manualTabOverride, setManualTabOverride] = useState(false);
+  useEffect(() => {
+    if (!morningStart || !morningEnd || !eveningStart) return;
+    if (manualTabOverride) return;
+    const suggested = detectActiveSession(morningStart, morningEnd, eveningStart);
+    setActiveSession(suggested);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tick, morningStart, morningEnd, eveningStart]);
+
+  // Manual tab click — doctor picks a tab explicitly
+  const handleTabClick = (key) => {
+    setManualTabOverride(true);
+    setActiveSession(key);
+    // Release the override after 10 min so auto-switch resumes
+    setTimeout(() => setManualTabOverride(false), 10 * 60 * 1000);
+  };
 
   // ── Data state ────────────────────────────────────────────
   const [appointments, setAppointments]     = useState([]);
   const [apptStats, setApptStats]           = useState({ total: 0, pending: 0, inProgress: 0, completed: 0, remaining: 0 });
   const [recentRx, setRecentRx]             = useState([]);
   const [labPending, setLabPending]         = useState(0);
+  const [labAlerts, setLabAlerts]           = useState([]);
+  const [loadingAlerts, setLoadingAlerts]   = useState(true);
   const [monthlyRxCount, setMonthlyRxCount] = useState(0);
   const [loadingAppts, setLoadingAppts]     = useState(true);
   const [loadingRx, setLoadingRx]           = useState(true);
@@ -206,9 +244,7 @@ export default function DoctorDashboard() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  // ── Fetch session config → derive active session ──────────
-  // Calls session-info for both sessions to retrieve the real
-  // morningSessionStart / eveningSessionStart from the Config doc.
+  // ── Fetch session config ──────────────────────────────────
   const loadSessionConfig = useCallback(async () => {
     try {
       const today = new Date().toISOString().split("T")[0];
@@ -216,28 +252,27 @@ export default function DoctorDashboard() {
         api.get(`/appointments/session-info?date=${today}&session=Morning`),
         api.get(`/appointments/session-info?date=${today}&session=Evening`),
       ]);
-
-      const mStart = mRes.status === "fulfilled"
-        ? mRes.value.data?.data?.startTime || "07:00"
-        : "07:00";
-      const eStart = eRes.status === "fulfilled"
-        ? eRes.value.data?.data?.startTime || "17:00"
-        : "17:00";
-
+      const mStart = mRes.status === "fulfilled" ? mRes.value.data?.data?.startTime || "07:00" : "07:00";
+      const eStart = eRes.status === "fulfilled" ? eRes.value.data?.data?.startTime || "17:00" : "17:00";
       setMorningStart(mStart);
       setEveningStart(eStart);
-      setActiveSession(detectActiveSession(mStart, eStart));
-    } catch {
-      setActiveSession(detectActiveSession("07:00", "17:00"));
-    }
+    } catch { /* use defaults */ }
   }, []);
 
   // ── Fetch today's appointments ────────────────────────────
   const loadAppointments = useCallback(async () => {
     try {
       const res = await api.get("/appointments/today");
-      setAppointments(res.data.appointments || []);
-      setApptStats(res.data.stats || {});
+      const appts = res.data.appointments || [];
+      setAppointments(appts);
+
+      // Compute stats from the list
+      const total      = appts.length;
+      const pending    = appts.filter(a => a.status === "Pending").length;
+      const inProgress = appts.filter(a => a.status === "In Progress").length;
+      const completed  = appts.filter(a => a.status === "Completed").length;
+      const remaining  = pending + inProgress;
+      setApptStats({ total, pending, inProgress, completed, remaining });
     } catch {
       showToast("Failed to load today's schedule", "error");
     } finally {
@@ -245,7 +280,7 @@ export default function DoctorDashboard() {
     }
   }, []);
 
-  // ── Fetch recent prescriptions (last 30 min) ──────────────
+  // ── Fetch recent prescriptions ────────────────────────────
   const loadRecentRx = useCallback(async () => {
     try {
       const res = await api.get("/prescriptions?recent=true&limit=8");
@@ -257,9 +292,31 @@ export default function DoctorDashboard() {
   // ── Fetch lab pending count ───────────────────────────────
   const loadLabStats = useCallback(async () => {
     try {
-      const res = await api.get("/lab-requests?status=pending&limit=1");
+      const res = await api.get("/lab-requests?status=pending");
       setLabPending(res.data.count || 0);
     } catch { /* keep 0 */ }
+  }, []);
+
+  // ── Fetch lab alerts — completed results in last 30 mins ─────
+  const loadLabAlerts = useCallback(async () => {
+    setLoadingAlerts(true);
+    try {
+      const res = await api.get("/lab-results?status=completed&limit=50");
+      const results = res.data.results || [];
+      const thirtyMinsAgo = Date.now() - 30 * 60 * 1000;
+      const recent = results.filter(r =>
+        new Date(r.completedAt).getTime() > thirtyMinsAgo
+      );
+      setLabAlerts(
+        recent.map(r => ({
+          ...r,
+          alertType: r.results?.parameters?.some(p =>
+            ["High", "Low", "Positive", "Reactive"].includes(p.flag)
+          ) ? "abnormal" : "ready",
+        }))
+      );
+    } catch { /* keep empty */ }
+    finally { setLoadingAlerts(false); }
   }, []);
 
   // ── Fetch this-month prescription count ───────────────────
@@ -281,8 +338,9 @@ export default function DoctorDashboard() {
     loadAppointments();
     loadRecentRx();
     loadLabStats();
+    loadLabAlerts();
     loadMonthlyRx();
-  }, [loadSessionConfig, loadAppointments, loadRecentRx, loadLabStats, loadMonthlyRx]);
+  }, [loadSessionConfig, loadAppointments, loadRecentRx, loadLabStats, loadLabAlerts, loadMonthlyRx]);
 
   // ── Auto-refresh every 30 seconds ─────────────────────────
   useEffect(() => {
@@ -299,10 +357,18 @@ export default function DoctorDashboard() {
     : appointments;
 
   // Per-session counts for tab badges
-  const morningAppts    = appointments.filter(a => a.session === "Morning");
-  const eveningAppts    = appointments.filter(a => a.session === "Evening");
+  const morningAppts     = appointments.filter(a => a.session === "Morning");
+  const eveningAppts     = appointments.filter(a => a.session === "Evening");
   const morningRemaining = morningAppts.filter(a => a.status === "Pending" || a.status === "In Progress").length;
   const eveningRemaining = eveningAppts.filter(a => a.status === "Pending" || a.status === "In Progress").length;
+
+  // ── Session phases (re-computed on every tick) ─────────────
+  const morningPhase = getSessionPhase(morningStart, morningEnd);   // 'before' | 'live' | 'ended'
+  const eveningPhase = getSessionPhase(eveningStart, eveningEnd);
+
+  // Countdown until a session starts
+  const morningCountdown = morningPhase === "before" ? fmtCountdown(morningStart) : null;
+  const eveningCountdown = eveningPhase === "before" ? fmtCountdown(eveningStart) : null;
 
   // ── Build prefill URL params from an appointment ──────────
   const buildPrefillParams = (appt) =>
@@ -320,14 +386,12 @@ export default function DoctorDashboard() {
     try {
       const res     = await api.patch(`/appointments/${appt._id}/start`);
       const updated = res.data.appointment;
-
       setAppointments(prev => prev.map(a => a._id === updated._id ? updated : a));
       setApptStats(prev => ({
         ...prev,
         pending:    Math.max(0, prev.pending - 1),
         inProgress: prev.inProgress + 1,
       }));
-
       navigate(`/doctor/prescriptions?${buildPrefillParams(updated)}`);
     } catch (err) {
       showToast(err.response?.data?.message || "Failed to start appointment", "error");
@@ -336,10 +400,7 @@ export default function DoctorDashboard() {
     }
   };
 
-  // ── CONTINUE: already In Progress — just reopen Rx form ───
-  // No status change needed. Re-navigates with same prefill data
-  // so if the doctor accidentally closed the prescription form,
-  // they can reopen it with all fields already populated.
+  // ── CONTINUE: In Progress → reopen Rx form ────────────────
   const handleContinue = (appt) => {
     navigate(`/doctor/prescriptions?${buildPrefillParams(appt)}`);
   };
@@ -384,31 +445,41 @@ export default function DoctorDashboard() {
     },
   ];
 
-  // ── Which session is live RIGHT NOW (for green dot) ──────────
-  // clockSession (for tab auto-select) still uses detectActiveSession
-  const clockSession = detectActiveSession(morningStart, eveningStart);
-
   // ── Session tab definitions ───────────────────────────────
   const SESSION_TABS = [
     {
       key:       "Morning",
-      label:     "Morning",
+      label:     "Morning Session",
       timeRange: `${fmtSessionTime(morningStart)} – ${fmtSessionTime(morningEnd)}`,
-      sunIcon:   true,
+      phase:     morningPhase,
+      countdown: morningCountdown,
       remaining: morningRemaining,
       count:     morningAppts.length,
-      isLive:    isSessionLive("Morning", morningStart, morningEnd, eveningStart, eveningEnd),
+      sunIcon:   true,
     },
     {
       key:       "Evening",
-      label:     "Evening",
+      label:     "Evening Session",
       timeRange: `${fmtSessionTime(eveningStart)} – ${fmtSessionTime(eveningEnd)}`,
-      sunIcon:   false,
+      phase:     eveningPhase,
+      countdown: eveningCountdown,
       remaining: eveningRemaining,
       count:     eveningAppts.length,
-      isLive:    isSessionLive("Evening", morningStart, morningEnd, eveningStart, eveningEnd),
+      sunIcon:   false,
     },
   ];
+
+  // Phase label config
+  const PHASE_BADGE = {
+    before: { text: "Upcoming",  cls: "bg-amber-50 text-amber-600 border border-amber-200"  },
+    live:   { text: "Live Now",  cls: "bg-green-50 text-green-700 border border-green-200"  },
+    ended:  { text: "Ended",     cls: "bg-gray-100 text-gray-500 border border-gray-200"    },
+  };
+
+  // ── Derive the active session's phase for the start button ─
+  const activePhase = activeSession === "Morning" ? morningPhase : eveningPhase;
+  const activeCountdown = activeSession === "Morning" ? morningCountdown : eveningCountdown;
+  const activeStart  = activeSession === "Morning" ? morningStart : eveningStart;
 
   return (
     <DoctorLayout activePage="Dashboard">
@@ -520,13 +591,13 @@ export default function DoctorDashboard() {
               {/* ── Session Tabs ─────────────────────────── */}
               <div className="flex gap-1">
                 {SESSION_TABS.map((tab) => {
-                  const isActive      = activeSession === tab.key;
-                  const isCurrentTime = tab.isLive; // green dot = session is happening right now
+                  const isActive = activeSession === tab.key;
+                  const badge    = PHASE_BADGE[tab.phase];
 
                   return (
                     <button
                       key={tab.key}
-                      onClick={() => setActiveSession(tab.key)}
+                      onClick={() => handleTabClick(tab.key)}
                       className={`relative flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-xl transition-all border-b-2 ${
                         isActive
                           ? "border-blue-600 text-blue-700 bg-blue-50/50"
@@ -548,7 +619,18 @@ export default function DoctorDashboard() {
                       )}
 
                       <div className="text-left">
-                        <div>{tab.label}</div>
+                        <div className="flex items-center gap-1.5">
+                          {tab.label}
+                          {/* Phase badge — shown on active tab */}
+                          {isActive && (
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${badge.cls}`}>
+                              {tab.phase === "live" && (
+                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 mr-1 animate-pulse" />
+                              )}
+                              {badge.text}
+                            </span>
+                          )}
+                        </div>
                         <div className={`text-xs font-normal leading-none mt-0.5 ${isActive ? "text-blue-500" : "text-gray-400"}`}>
                           {tab.timeRange}
                         </div>
@@ -562,19 +644,38 @@ export default function DoctorDashboard() {
                           {tab.remaining}
                         </span>
                       )}
-
-                      {/* Green dot = currently active clock session */}
-                      {isCurrentTime && (
-                        <span
-                          title="Current session"
-                          className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-white"
-                        />
-                      )}
                     </button>
                   );
                 })}
               </div>
             </div>
+
+            {/* ── Session phase banner (before / ended) ────── */}
+            {activePhase === "before" && (
+              <div className="flex items-center gap-3 px-6 py-3 bg-amber-50 border-b border-amber-100">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 text-amber-500 flex-shrink-0">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <span className="text-xs text-amber-700 font-medium">
+                  {activeSession} session starts at <strong>{fmtSessionTime(activeStart)}</strong>
+                  {activeCountdown && <> — starts in <strong>{activeCountdown}</strong></>}
+                </span>
+              </div>
+            )}
+
+            {activePhase === "ended" && (
+              <div className="flex items-center gap-3 px-6 py-3 bg-gray-50 border-b border-gray-100">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 text-gray-400 flex-shrink-0">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <span className="text-xs text-gray-500 font-medium">
+                  {activeSession} session ended at <strong>{fmtSessionTime(activeSession === "Morning" ? morningEnd : eveningEnd)}</strong>
+                  . Appointments are shown for reference only.
+                </span>
+              </div>
+            )}
 
             {/* Appointments list */}
             {loadingAppts ? (
@@ -615,9 +716,18 @@ export default function DoctorDashboard() {
                 </div>
 
                 {sessionAppointments.map((appt) => {
-                  const statusStyle = APPT_STATUS[appt.status] || APPT_STATUS.Pending;
-                  const isStarting  = startingId === appt._id;
+                  const statusStyle  = APPT_STATUS[appt.status] || APPT_STATUS.Pending;
+                  const isStarting   = startingId === appt._id;
                   const isInProgress = appt.status === "In Progress";
+
+                  // Determine if the Start button should be locked and why
+                  const sessionLocked = activePhase !== "live"; // locked when session hasn't started or has ended
+                  const lockReason    =
+                    activePhase === "before"
+                      ? `Session starts at ${fmtSessionTime(activeStart)}${activeCountdown ? ` (in ${activeCountdown})` : ""}`
+                      : activePhase === "ended"
+                      ? "Session has ended"
+                      : null;
 
                   return (
                     <div
@@ -664,37 +774,55 @@ export default function DoctorDashboard() {
 
                       {/* ── Action button ──────────────────────── */}
 
-                      {/* START — Pending only → changes status + opens Rx form */}
+                      {/* START — Pending only */}
                       {appt.status === "Pending" && (
-                        <button
-                          onClick={() => handleStart(appt)}
-                          disabled={isStarting || startingId !== null}
-                          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white flex-shrink-0 transition disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
-                          style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}
-                        >
-                          {isStarting ? (
-                            <>
-                              <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                              </svg>
-                              Starting…
-                            </>
-                          ) : (
-                            <>
+                        sessionLocked ? (
+                          // Locked button with tooltip
+                          <div className="relative group flex-shrink-0">
+                            <button
+                              disabled
+                              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed"
+                            >
                               <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"/>
+                                <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"/>
                               </svg>
-                              Start
-                            </>
-                          )}
-                        </button>
+                              {activePhase === "before" ? "Not Yet" : "Ended"}
+                            </button>
+                            {/* Tooltip */}
+                            <div className="absolute bottom-full right-0 mb-2 px-3 py-1.5 bg-gray-800 text-white text-xs rounded-xl whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                              {lockReason}
+                              <div className="absolute top-full right-3 -mt-1 border-4 border-transparent border-t-gray-800" />
+                            </div>
+                          </div>
+                        ) : (
+                          // Active start button
+                          <button
+                            onClick={() => handleStart(appt)}
+                            disabled={isStarting || startingId !== null}
+                            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white flex-shrink-0 transition disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
+                            style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}
+                          >
+                            {isStarting ? (
+                              <>
+                                <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                </svg>
+                                Starting…
+                              </>
+                            ) : (
+                              <>
+                                <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"/>
+                                </svg>
+                                Start
+                              </>
+                            )}
+                          </button>
+                        )
                       )}
 
-                      {/* CONTINUE — In Progress only
-                          No API call needed — appointment is already In Progress.
-                          Opens the prescription form pre-filled with this patient's
-                          data so the doctor can resume if they closed it accidentally. */}
+                      {/* CONTINUE — In Progress (always available regardless of session time) */}
                       {isInProgress && (
                         <button
                           onClick={() => handleContinue(appt)}
@@ -718,7 +846,7 @@ export default function DoctorDashboard() {
           {/* ── Right sidebar ──────────────────────────── */}
           <div className="space-y-5">
 
-            {/* ── Recent Prescriptions (last 30 min) ───── */}
+            {/* ── Recent Prescriptions ─────────────────── */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                 <div>
@@ -775,7 +903,6 @@ export default function DoctorDashboard() {
                           )}
                         </div>
                         <div className="flex items-center justify-between mt-1">
-                          {/* Clickable RX ID → opens that prescription in the prescriptions page */}
                           <button
                             onClick={() => navigate(`/doctor/prescriptions?open=${rx.prescriptionId}`)}
                             className="text-xs font-mono text-blue-500 hover:text-blue-700 hover:underline transition text-left"
@@ -799,7 +926,7 @@ export default function DoctorDashboard() {
                 {[
                   { label: "Issue Prescription", href: "/doctor/prescriptions", color: "#1565C0", bg: "#E3F2FD", icon: QA_ICONS.prescription },
                   { label: "Request Lab Test",    href: "/doctor/lab-requests",  color: "#7B1FA2", bg: "#F3E5F5", icon: QA_ICONS.lab },
-                  { label: "View Lab Results",    href: "/doctor/lab-requests",  color: "#00897B", bg: "#E0F2F1", icon: QA_ICONS.chart },
+                  { label: "View Lab Results",    href: "/doctor/lab-results",  color: "#00897B", bg: "#E0F2F1", icon: QA_ICONS.chart },
                   { label: "Patient History",     href: "/doctor/patients",      color: "#E65100", bg: "#FFF3E0", icon: QA_ICONS.patient },
                 ].map((action) => (
                   <a key={action.label} href={action.href}
@@ -820,22 +947,109 @@ export default function DoctorDashboard() {
               </div>
             </div>
 
-            {/* ── Lab Alerts (static — update later) ─── */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <h3 className="font-semibold text-gray-800 text-sm mb-3 flex items-center gap-2">
-                Lab Alerts
-                <span className="w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">2</span>
-              </h3>
-              <div className="space-y-2">
-                <div className="p-3 rounded-xl bg-purple-50 border border-purple-100">
-                  <div className="text-xs font-semibold text-purple-800">CBC Results Ready</div>
-                  <div className="text-xs text-purple-600 mt-0.5">Patient: Nimal Fernando</div>
+            {/* ── Lab Alerts ───────────────────────────── */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-gray-800 text-sm">Lab Alerts</h3>
+                    {labAlerts.filter(a => a.alertType === "abnormal").length > 0 && (
+                      <span className="w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center animate-pulse">
+                        {labAlerts.filter(a => a.alertType === "abnormal").length}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">Completed in last 30 minutes</p>
                 </div>
-                <div className="p-3 rounded-xl bg-yellow-50 border border-yellow-100">
-                  <div className="text-xs font-semibold text-yellow-800">ECG Report Pending Review</div>
-                  <div className="text-xs text-yellow-600 mt-0.5">Patient: Kamal Perera</div>
-                </div>
+                <a href="/doctor/lab-results" className="text-xs text-blue-600 font-medium hover:underline flex-shrink-0">
+                  View All
+                </a>
               </div>
+
+              {loadingAlerts ? (
+                <div className="divide-y divide-gray-50">
+                  {Array(3).fill(0).map((_, i) => (
+                    <div key={i} className="px-5 py-3.5 animate-pulse space-y-1.5">
+                      <div className="w-36 h-3.5 bg-gray-100 rounded"/>
+                      <div className="w-24 h-3 bg-gray-100 rounded"/>
+                      <div className="w-28 h-3 bg-gray-100 rounded"/>
+                    </div>
+                  ))}
+                </div>
+              ) : labAlerts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 px-5 text-center">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center mb-2">
+                    <LabIcon />
+                  </div>
+                  <p className="text-gray-500 text-xs font-medium">No alerts</p>
+                  <p className="text-gray-400 text-xs mt-0.5">No results completed in the last 30 min</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {labAlerts.map((alert) => {
+                    const isAbnormal = alert.alertType === "abnormal";
+                    const abnormalParams = alert.results?.parameters?.filter(p =>
+                      ["High", "Low", "Positive", "Reactive"].includes(p.flag)
+                    ) || [];
+                    const patientName = alert.patientName || "Unknown Patient";
+                    const completedAt = alert.completedAt
+                      ? new Date(alert.completedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
+                      : "—";
+
+                    return (
+                      <div
+                        key={alert._id}
+                        className={`px-5 py-3.5 hover:bg-gray-50 transition cursor-pointer border-l-2 ${
+                          isAbnormal ? "border-l-red-400" : "border-l-green-400"
+                        }`}
+                        onClick={() => navigate(`/doctor/lab-results?open=${alert.testId}`)}
+                      >
+                        {/* Top row */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                            <span className="text-base flex-shrink-0">{isAbnormal ? "⚠️" : "🧪"}</span>
+                            <span className="text-xs font-semibold text-gray-800 truncate">{patientName}</span>
+                          </div>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 border ${
+                            isAbnormal
+                              ? "bg-red-50 text-red-600 border-red-200"
+                              : "bg-green-50 text-green-700 border-green-200"
+                          }`}>
+                            {isAbnormal ? "Abnormal" : "Ready"}
+                          </span>
+                        </div>
+
+                        {/* Test info */}
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-blue-600 font-mono">{alert.testId}</span>
+                          <span className="text-gray-200">·</span>
+                          <span className="text-xs text-gray-500">{alert.testName}</span>
+                          <span className="text-gray-200">·</span>
+                          <span className="text-xs text-gray-400">{completedAt}</span>
+                        </div>
+
+                        {/* Abnormal flags */}
+                        {isAbnormal && abnormalParams.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {abnormalParams.slice(0, 3).map((p, i) => (
+                              <span key={i} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
+                                ["High", "Positive", "Reactive"].includes(p.flag)
+                                  ? "bg-red-50 text-red-600 border-red-200"
+                                  : "bg-blue-50 text-blue-600 border-blue-200"
+                              }`}>
+                                {p.name}: {p.value} {p.unit} ↑
+                              </span>
+                            ))}
+                            {abnormalParams.length > 3 && (
+                              <span className="text-[10px] text-gray-400">+{abnormalParams.length - 3} more</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
           </div>

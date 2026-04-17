@@ -1,6 +1,34 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+// ── Logout Confirmation Modal ──────────────────────────────────
+function LogoutModal({ onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
+      <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-80 mx-4">
+        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 mx-auto mb-4">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-6 h-6 text-red-500">
+            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
+          </svg>
+        </div>
+        <h3 className="text-center text-gray-800 font-bold text-lg mb-1">Sign Out</h3>
+        <p className="text-center text-gray-500 text-sm mb-6">Are you sure you want to log out of your account?</p>
+        <div className="flex gap-3">
+          <button onClick={onCancel}
+            className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition">
+            Cancel
+          </button>
+          <button onClick={onConfirm}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition">
+            Sign Out
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const fontLink = document.createElement("link");
 fontLink.rel = "stylesheet";
 fontLink.href = "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap";
@@ -11,10 +39,17 @@ const NAV_ITEMS = [
   { label: "My Schedule", href: "/doctor/appointments", icon: (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" /></svg>) },
   { label: "Prescriptions", href: "/doctor/prescriptions", icon: (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><line x1="10" y1="9" x2="8" y2="9" /></svg>) },
   { label: "Lab Requests", href: "/doctor/lab-requests", icon: (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v11m0 0H5m4 0h10m-10 0v4a2 2 0 002 2h4m4-10v10a2 2 0 01-2 2h-4m0 0H9" /></svg>) },
+ { 
+    label: "Lab Results", 
+    href: "/doctor/lab-results", 
+    icon: (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>)
+  },
+
   { label: "Patient Records", href: "/doctor/patients", icon: (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" /></svg>) },
   { label: "Medical Analysis", href: "/doctor/analysis", badge: "AI", icon: (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>) },
   { label: "Medicine Analysis", href: "/doctor/medicine-analysis", icon: (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v11m0 0H5m4 0h10m-10 0v4a2 2 0 002 2h4" /><line x1="12" y1="17" x2="12" y2="21" /><line x1="8" y1="21" x2="16" y2="21" /></svg>) },
 ];
+
 
 // Get initials from full name
 function getInitials(name) {
@@ -22,10 +57,10 @@ function getInitials(name) {
   return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 }
 
-// Read logged-in user from localStorage
+// Read logged-in user from sessionStorage
 function getStoredUser() {
   try {
-    const str = localStorage.getItem("user");
+    const str = sessionStorage.getItem("user");
     return str ? JSON.parse(str) : null;
   } catch {
     return null;
@@ -35,9 +70,10 @@ function getStoredUser() {
 export default function DoctorLayout({ children, activePage = "Dashboard" }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [showLogout, setShowLogout] = useState(false);
   const navigate = useNavigate();
 
-  // Real user data from localStorage
+  // Real user data from sessionStorage
   const user = getStoredUser();
   const displayName = user?.name || "Doctor";
   const initials = getInitials(user?.name);
@@ -50,21 +86,19 @@ export default function DoctorLayout({ children, activePage = "Dashboard" }) {
   });
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/login");
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("user");
+    navigate("/login", { replace: true });
   };
 
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif" }} className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* ── SIDEBAR ── */}
+      {showLogout && <LogoutModal onConfirm={handleLogout} onCancel={() => setShowLogout(false)} />}
       <aside className={`relative flex flex-col bg-[#0D2137] text-white transition-all duration-300 flex-shrink-0 ${sidebarOpen ? "w-64" : "w-20"}`}>
         {/* Logo */}
         <div className="flex items-center gap-3 px-5 py-5 border-b border-white/10">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}>
-            <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5">
-              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/>
-            </svg>
+          <div className="w-9 h-9 rounded-xl flex-shrink-0 overflow-hidden">
+            <img src="/Logo.png" alt="PHC" className="w-full h-full object-contain" />
           </div>
           {sidebarOpen && (
             <div className="overflow-hidden">
@@ -123,7 +157,7 @@ export default function DoctorLayout({ children, activePage = "Dashboard" }) {
             </svg>
             {sidebarOpen && <span>Settings</span>}
           </a>
-          <button onClick={handleLogout}
+          <button onClick={() => setShowLogout(true)}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-500/10 transition ${!sidebarOpen ? "justify-center" : ""}`}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 flex-shrink-0">
               <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />

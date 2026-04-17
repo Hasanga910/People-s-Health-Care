@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import DoctorLayout from "../../components/DoctorLayout";
 import api from "../../services/api";
 
@@ -212,11 +213,15 @@ function PrescriptionDetailModal({ rxId, onClose }) {
 
 // ── Patient modal ─────────────────────────────────────────────
 function PatientModal({ patient, onClose }) {
+  const navigate = useNavigate();
   const [tab, setTab]                     = useState("overview");
   const [prescriptions, setPrescriptions] = useState([]);
+  const [labResults,    setLabResults]    = useState([]);
   const [loadingRx, setLoadingRx]         = useState(false);
+  const [loadingLab,setLoadingLab]        = useState(false);
   const [selectedRx, setSelectedRx]       = useState(null);
   const [selectedLr, setSelectedLr]       = useState(null);
+  const [selectedLabResult, setSelectedLabResult] = useState(null);
 
   useEffect(() => {
     if (tab === "visits") {
@@ -225,6 +230,13 @@ function PatientModal({ patient, onClose }) {
         .then(res => setPrescriptions(res.data.prescriptions || []))
         .catch(() => setPrescriptions([]))
         .finally(() => setLoadingRx(false));
+    }
+    if (tab === "labresults") {
+      setLoadingLab(true);
+      api.get(`/lab-results?patientId=${patient.userId}`)
+        .then(res => setLabResults(res.data.results || []))
+        .catch(() => setLabResults([]))
+        .finally(() => setLoadingLab(false));
     }
   }, [tab, patient.userId]);
 
@@ -235,6 +247,53 @@ function PatientModal({ patient, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       {selectedRx && <PrescriptionDetailModal rxId={selectedRx} onClose={() => setSelectedRx(null)} />}
       {selectedLr && <LabRequestDetailModal   lrId={selectedLr}  onClose={() => setSelectedLr(null)} />}
+      {selectedLabResult && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={e=>e.target===e.currentTarget&&setSelectedLabResult(null)}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
+            <div style={{background:"linear-gradient(135deg,#0D2137,#006064)"}} className="px-6 py-5 rounded-t-3xl">
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <p className="text-white/50 text-xs uppercase tracking-widest">Lab Result</p>
+                  <h3 className="text-white font-bold text-lg mt-1" style={{fontFamily:"'Playfair Display',serif"}}>{selectedLabResult.testName}</h3>
+                  <p className="text-white/60 text-xs font-mono mt-0.5">{selectedLabResult.testId}</p>
+                </div>
+                <button onClick={()=>setSelectedLabResult(null)} className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+              <div className="bg-white/10 rounded-xl px-4 py-2.5 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white font-bold text-xs">{selectedLabResult.patientId?.name?.split(" ").map(n=>n[0]).join("").slice(0,2)||"PT"}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-white text-sm font-semibold">{selectedLabResult.patientId?.name||patient.name}</div>
+                  <div className="text-white/60 text-xs font-mono">{selectedLabResult.patientId?.userId||patient.userId}</div>
+                </div>
+              </div>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50 rounded-xl p-3 border border-gray-100"><p className="text-xs text-gray-400">Lab Request</p><p className="text-sm font-mono font-semibold text-gray-700">{selectedLabResult.labRequestRef||"—"}</p></div>
+                <div className="bg-gray-50 rounded-xl p-3 border border-gray-100"><p className="text-xs text-gray-400">Completed</p><p className="text-sm font-semibold text-gray-700">{selectedLabResult.completedAt?new Date(selectedLabResult.completedAt).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}):"—"}</p></div>
+              </div>
+              {selectedLabResult.results?.parameters?.length>0&&(
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Parameters</p>
+                  <div className="rounded-xl border border-gray-100 overflow-hidden">
+                    <table className="w-full text-xs"><thead><tr className="bg-gray-50"><th className="px-3 py-2 text-left text-gray-400 font-semibold">Parameter</th><th className="px-3 py-2 text-left text-gray-400 font-semibold">Value</th><th className="px-3 py-2 text-left text-gray-400 font-semibold">Flag</th></tr></thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {selectedLabResult.results.parameters.map((p,i)=>{
+                        const abn=["High","Low","Positive","Reactive"].includes(p.flag);
+                        return(<tr key={i} className={abn?"bg-red-50":""}><td className="px-3 py-2.5 text-gray-700 font-medium">{p.name}</td><td className="px-3 py-2.5"><span className={`font-bold ${abn?"text-red-600":"text-gray-800"}`}>{p.value||"—"} {p.unit}</span></td><td className="px-3 py-2.5">{p.flag&&<span className={`text-xs font-bold px-2 py-0.5 rounded-full ${abn?"bg-red-100 text-red-600":"bg-green-100 text-green-600"}`}>{p.flag}</span>}</td></tr>);
+                      })}
+                    </tbody></table>
+                  </div>
+                </div>
+              )}
+              {selectedLabResult.results?.labNotes&&<div className="bg-yellow-50 border border-yellow-100 rounded-xl p-3 text-xs text-gray-700 leading-relaxed">{selectedLabResult.results.labNotes}</div>}
+              <button onClick={()=>{setSelectedLabResult(null);navigate(`/doctor/lab-results?open=${selectedLabResult.testId}`);}} className="w-full py-3 rounded-xl text-white text-sm font-semibold shadow-md" style={{background:"linear-gradient(135deg,#006064,#00838F)"}}>Open Full Report →</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div style={{ background: "linear-gradient(135deg, #0D2137, #1565C0)" }}>
@@ -253,7 +312,7 @@ function PatientModal({ patient, onClose }) {
             </button>
           </div>
           <div className="flex gap-1 px-6 mt-4">
-            {[{ id: "overview", label: "Overview" }, { id: "visits", label: "Prescriptions" }, { id: "vitals", label: "Vitals" }].map(t => (
+            {[{ id: "overview", label: "Overview" }, { id: "visits", label: "Prescriptions" }, { id: "labresults", label: "Lab Results" }, { id: "vitals", label: "Vitals" }].map(t => (
               <button key={t.id} onClick={() => setTab(t.id)}
                 className={`px-5 py-2.5 text-sm font-medium border-b-2 transition ${tab === t.id ? "text-white border-cyan-300" : "text-white/50 border-transparent hover:text-white/80"}`}>
                 {t.label}
@@ -369,6 +428,95 @@ function PatientModal({ patient, onClose }) {
               )}
             </div>
           )}
+
+
+          {/* Lab Results Tab */}
+          {tab === "labresults" && (() => {
+            const LAB_ST = {
+              payment_pending: { label:"Payment Pending", cls:"bg-gray-100 text-gray-600 border-gray-200" },
+              pre_check:       { label:"Pre-Check",        cls:"bg-purple-100 text-purple-700 border-purple-200" },
+              sample_received: { label:"Sample Received",  cls:"bg-blue-100 text-blue-700 border-blue-200" },
+              in_progress:     { label:"In Progress",      cls:"bg-amber-100 text-amber-700 border-amber-200" },
+              completed:       { label:"Completed",        cls:"bg-green-100 text-green-700 border-green-200" },
+            };
+            const DESC = {
+              "FBC":             "Full Blood Count — red/white cells, platelets",
+              "ESR":             "Erythrocyte Sedimentation Rate — inflammation marker",
+              "FBS":             "Fasting Blood Sugar — diabetes & glucose screening",
+              "Liver Profile":   "Liver function enzymes and bilirubin panel",
+              "Renal Profile":   "Kidney function and electrolytes panel",
+              "Thyroid Profile": "TSH, fT3, fT4 thyroid hormone levels",
+              "Serum Vit D Level":"Vitamin D concentration in blood",
+              "Dengue Ag":       "Dengue NS1 antigen and IgM/IgG antibodies",
+            };
+            return (
+              <div>
+                {loadingLab ? (
+                  <div className="flex flex-col items-center py-10 gap-3">
+                    <div className="w-6 h-6 border-2 border-teal-200 border-t-teal-600 rounded-full animate-spin"/>
+                    <p className="text-sm text-gray-400">Loading lab results…</p>
+                  </div>
+                ) : labResults.length === 0 ? (
+                  <div className="text-center py-10">
+                    <div className="text-4xl mb-3">🧪</div>
+                    <p className="text-gray-500 font-medium">No lab results found</p>
+                    <p className="text-xs text-gray-400 mt-1">No lab tests on record for this patient.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {labResults.map(lr => {
+                      const stCfg = LAB_ST[lr.status] || LAB_ST.in_progress;
+                      const isCompleted = lr.status === "completed";
+                      const desc = DESC[lr.testName] || "Laboratory diagnostic test";
+                      const isFlagged = lr.results?.parameters?.some(p => ["High","Low","Positive","Reactive"].includes(p.flag));
+                      return (
+                        <div key={lr._id} className={`p-4 rounded-2xl border transition group ${isCompleted ? "bg-teal-50/30 border-teal-100 hover:border-teal-300" : "bg-gray-50 border-gray-100"}`}>
+                          <div className="flex items-start gap-3">
+                            {/* date block */}
+                            <div className="w-11 h-11 rounded-xl flex flex-col items-center justify-center text-white flex-shrink-0"
+                              style={{background:isCompleted?"linear-gradient(135deg,#006064,#00838F)":"linear-gradient(135deg,#37474F,#546E7A)"}}>
+                              <span className="text-xs font-bold leading-none">{lr.completedAt?new Date(lr.completedAt).toLocaleDateString("en-GB",{month:"short"}):"—"}</span>
+                              <span className="text-sm font-bold leading-none">{lr.completedAt?new Date(lr.completedAt).getDate():"·"}</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              {/* Row 1 */}
+                              <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                                <span className="font-bold text-sm text-gray-800">🧪 {lr.testName}</span>
+                                {isFlagged && <span className="text-xs bg-red-100 text-red-600 font-bold px-2 py-0.5 rounded-full border border-red-200">⚠️ Abnormal</span>}
+                                <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ml-auto ${stCfg.cls}`}>{stCfg.label}</span>
+                              </div>
+                              {/* Description */}
+                              <p className="text-xs text-gray-500 mb-1">{desc}</p>
+                              {/* IDs row */}
+                              <div className="flex items-center gap-2 flex-wrap text-xs">
+                                <span className="font-mono bg-white border border-gray-200 text-gray-600 px-2 py-0.5 rounded-md">{lr.testId}</span>
+                                {lr.patientId?.userId && <span className="font-mono text-blue-500">{lr.patientId.userId}</span>}
+                                {lr.labRequestRef && <span className="font-mono text-purple-500">{lr.labRequestRef}</span>}
+                                {lr.appointmentId && <span className="text-gray-400">Appt: <span className="font-mono">{lr.appointmentId}</span></span>}
+                              </div>
+                              {/* Abnormal flags */}
+                              {isFlagged && (
+                                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                  {lr.results.parameters.filter(p=>["High","Low","Positive","Reactive"].includes(p.flag)).slice(0,3).map((p,i)=>(
+                                    <span key={i} className="text-xs bg-red-50 text-red-600 border border-red-100 px-2 py-0.5 rounded-full">{p.name}: {p.value} {p.unit} ({p.flag})</span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            {isCompleted && (
+                              <button onClick={()=>setSelectedLabResult(lr)} className="flex-shrink-0 flex items-center gap-1 text-xs font-semibold text-teal-700 hover:text-teal-900 bg-teal-50 border border-teal-200 px-3 py-1.5 rounded-xl hover:bg-teal-100 transition self-center">
+                                View →
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Vitals */}
           {tab === "vitals" && (

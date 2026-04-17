@@ -6,7 +6,7 @@ const ROLE_CONFIG = {
   doctor:   { label: "Doctor",      bg: "bg-blue-100",   text: "text-blue-700",   dot: "bg-blue-500",   icon: "🩺" },
   lab:      { label: "Lab",         bg: "bg-teal-100",   text: "text-teal-700",   dot: "bg-teal-500",   icon: "🔬" },
   pharmacy: { label: "Pharmacy",    bg: "bg-green-100",  text: "text-green-700",  dot: "bg-green-500",  icon: "💊" },
-  cashier:  { label: "Cashier",     bg: "bg-amber-100",  text: "text-amber-700",  dot: "bg-amber-500",  icon: "💰" },
+  cashier:  { label: "Cashier",     bg: "bg-indigo-100",  text: "text-indigo-700",  dot: "bg-indigo-500",  icon: "💰" },
   admin:    { label: "Admin",       bg: "bg-red-100",    text: "text-red-700",    dot: "bg-red-500",    icon: "🛡️" },
 };
 
@@ -29,7 +29,6 @@ function AddStaffModal({ onClose, onSaved }) {
   const [telephone, setTelephone]   = useState("");
   // Doctor-specific
   const [slmc, setSlmc]             = useState("");
-  const [mcr, setMcr]               = useState("");
   const [experience, setExperience] = useState("");
   const [saving, setSaving]         = useState(false);
   const [error, setError]           = useState("");
@@ -55,8 +54,7 @@ function AddStaffModal({ onClose, onSaved }) {
     try {
       const payload = { name: name.trim(), email: email.trim(), password, telephone: telephone.trim(), role };
       if (role === "doctor") {
-        payload.slmcRegisterNumber          = slmc.trim();
-        payload.medicalCenterRegisterNumber = mcr.trim();
+        payload.slmcRegisterNumber = slmc.trim();
         payload.workingExperience           = experience.trim();
       }
       const res = await api.post("/users/staff", payload);
@@ -69,7 +67,7 @@ function AddStaffModal({ onClose, onSaved }) {
     }
   };
 
-  const strengthColor = passStrength <= 1 ? "bg-red-400" : passStrength <= 3 ? "bg-amber-400" : "bg-green-500";
+  const strengthColor = passStrength <= 1 ? "bg-red-400" : passStrength <= 3 ? "bg-indigo-400" : "bg-green-500";
   const strengthLabel = passStrength <= 1 ? "Weak" : passStrength <= 3 ? "Fair" : passStrength === 4 ? "Good" : "Strong";
 
   return (
@@ -78,7 +76,7 @@ function AddStaffModal({ onClose, onSaved }) {
 
         {/* Header */}
         <div className="sticky top-0 z-10 rounded-t-3xl px-6 py-5 flex items-center justify-between"
-          style={{ background: "linear-gradient(135deg, #0D2137, #B45309)" }}>
+          style={{ background: "linear-gradient(135deg, #0D2137, #1A237E)" }}>
           <div>
             <p className="text-white/60 text-xs">Staff Management</p>
             <h2 className="text-white font-bold text-lg" style={{ fontFamily: "'Playfair Display', serif" }}>
@@ -101,9 +99,9 @@ function AddStaffModal({ onClose, onSaved }) {
             <div className="grid grid-cols-3 gap-2">
               {Object.entries(ROLE_CONFIG).filter(([r]) => r !== "admin").map(([r, cfg]) => (
                 <label key={r} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border cursor-pointer transition text-sm font-medium ${
-                  role === r ? "border-amber-400 bg-amber-50 text-amber-800" : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"
+                  role === r ? "border-indigo-400 bg-indigo-50 text-indigo-800" : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"
                 }`}>
-                  <input type="radio" name="role" value={r} checked={role === r} onChange={() => setRole(r)} className="accent-amber-500"/>
+                  <input type="radio" name="role" value={r} checked={role === r} onChange={() => setRole(r)} className="accent-indigo-600"/>
                   {cfg.icon} {cfg.label}
                 </label>
               ))}
@@ -120,19 +118,19 @@ function AddStaffModal({ onClose, onSaved }) {
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Full Name <span className="text-red-400">*</span></label>
             <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Dr. Amal Perera"
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 transition"/>
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"/>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Email <span className="text-red-400">*</span></label>
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="staff@phc.lk"
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 transition"/>
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"/>
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Telephone <span className="text-red-400">*</span></label>
               <input value={telephone} onChange={e => setTelephone(e.target.value)} placeholder="07X XXX XXXX"
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 transition"/>
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"/>
             </div>
           </div>
 
@@ -142,7 +140,7 @@ function AddStaffModal({ onClose, onSaved }) {
             <div className="relative">
               <input type={showPass ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)}
                 placeholder="Minimum 8 characters"
-                className="w-full px-4 py-2.5 pr-10 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 transition"/>
+                className="w-full px-4 py-2.5 pr-10 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"/>
               <button type="button" onClick={() => setShowPass(!showPass)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                 {showPass
@@ -157,7 +155,7 @@ function AddStaffModal({ onClose, onSaved }) {
                   <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                     <div className={`h-full rounded-full transition-all ${strengthColor}`} style={{ width: `${(passStrength / 5) * 100}%` }}/>
                   </div>
-                  <span className={`text-xs font-semibold ${passStrength <= 1 ? "text-red-500" : passStrength <= 3 ? "text-amber-500" : "text-green-600"}`}>
+                  <span className={`text-xs font-semibold ${passStrength <= 1 ? "text-red-500" : passStrength <= 3 ? "text-indigo-500" : "text-green-600"}`}>
                     {strengthLabel}
                   </span>
                 </div>
@@ -185,11 +183,6 @@ function AddStaffModal({ onClose, onSaved }) {
                   <input value={slmc} onChange={e => setSlmc(e.target.value)} placeholder="SLMC-XXXX"
                     className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white transition"/>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">MCR Number</label>
-                  <input value={mcr} onChange={e => setMcr(e.target.value)} placeholder="MCR-XXXX"
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white transition"/>
-                </div>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Working Experience</label>
@@ -206,7 +199,7 @@ function AddStaffModal({ onClose, onSaved }) {
             </button>
             <button onClick={handleSubmit} disabled={saving}
               className="flex-1 py-3 rounded-xl text-white text-sm font-semibold shadow-lg transition disabled:opacity-60"
-              style={{ background: "linear-gradient(135deg, #0D2137, #B45309)" }}>
+              style={{ background: "linear-gradient(135deg, #0D2137, #1A237E)" }}>
               {saving ? "Creating…" : "Create Account"}
             </button>
           </div>
@@ -232,7 +225,7 @@ function ViewStaffModal({ staff, onClose, onToggleActive }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md">
         <div className="px-6 py-5 flex items-center justify-between rounded-t-3xl"
-          style={{ background: "linear-gradient(135deg, #0D2137, #B45309)" }}>
+          style={{ background: "linear-gradient(135deg, #0D2137, #1A237E)" }}>
           <div>
             <p className="text-white/60 text-xs">Staff Record</p>
             <h3 className="text-white font-bold text-lg" style={{ fontFamily: "'Playfair Display', serif" }}>{staff.name}</h3>
@@ -248,7 +241,7 @@ function ViewStaffModal({ staff, onClose, onToggleActive }) {
           {/* Avatar + basics */}
           <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, #0D2137, #B45309)" }}>
+              style={{ background: "linear-gradient(135deg, #0D2137, #1A237E)" }}>
               {getInitials(staff.name)}
             </div>
             <div>
@@ -286,7 +279,6 @@ function ViewStaffModal({ staff, onClose, onToggleActive }) {
               <p className="text-xs font-semibold text-blue-700">🩺 Doctor Details</p>
               {[
                 { label: "SLMC Reg.", value: staff.doctorDetails.slmcRegisterNumber },
-                { label: "MCR Number", value: staff.doctorDetails.medicalCenterRegisterNumber },
                 { label: "Experience", value: staff.doctorDetails.workingExperience },
               ].map(d => d.value ? (
                 <div key={d.label} className="flex justify-between text-sm">
@@ -400,7 +392,7 @@ export default function AdminStaff() {
           </div>
           <button onClick={() => setShowAdd(true)}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold shadow-lg transition-transform hover:scale-105"
-            style={{ background: "linear-gradient(135deg, #0D2137, #B45309)" }}>
+            style={{ background: "linear-gradient(135deg, #0D2137, #1A237E)" }}>
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
               <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd"/>
             </svg>
@@ -411,7 +403,7 @@ export default function AdminStaff() {
         {/* Stats */}
         <div className="grid grid-cols-4 gap-4">
           {[
-            { label: "Total Staff",  value: stats.total,    color: "#B45309", bg: "#FEF3C7" },
+            { label: "Total Staff",  value: stats.total,    color: "#1A237E", bg: "#E8EAF6" },
             { label: "Active",       value: stats.active,   color: "#2E7D32", bg: "#E8F5E9" },
             { label: "Doctors",      value: stats.doctors,  color: "#1565C0", bg: "#E3F2FD" },
             { label: "Inactive",     value: stats.inactive, color: "#37474F", bg: "#ECEFF1" },
@@ -431,13 +423,13 @@ export default function AdminStaff() {
             </svg>
             <input type="text" placeholder="Search by name, email or ID…"
               value={search} onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 transition"/>
+              className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"/>
           </div>
           <div className="flex gap-2 flex-wrap">
             {[["all","All"], ["doctor","Doctors"], ["lab","Lab"], ["pharmacy","Pharmacy"], ["cashier","Cashier"], ["admin","Admin"]].map(([val, label]) => (
               <button key={val} onClick={() => setRoleFilter(val)}
                 className={`px-3 py-2 rounded-xl text-xs font-semibold transition ${roleFilter === val ? "text-white shadow-md" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-                style={roleFilter === val ? { background: "linear-gradient(135deg, #0D2137, #B45309)" } : {}}>
+                style={roleFilter === val ? { background: "linear-gradient(135deg, #0D2137, #1A237E)" } : {}}>
                 {label}
               </button>
             ))}
@@ -447,7 +439,7 @@ export default function AdminStaff() {
         {/* Staff grid */}
         {loading ? (
           <div className="flex items-center justify-center h-48">
-            <div className="w-8 h-8 border-4 border-amber-200 border-t-amber-600 rounded-full animate-spin"/>
+            <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"/>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 gap-4">
@@ -457,7 +449,7 @@ export default function AdminStaff() {
                 <div key={s._id} className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition overflow-hidden ${!s.isActive ? "opacity-60" : "border-gray-100"}`}>
                   <div className="flex items-center gap-4 p-5">
                     <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-                      style={{ background: s.isActive ? "linear-gradient(135deg, #0D2137, #B45309)" : "#9CA3AF" }}>
+                      style={{ background: s.isActive ? "linear-gradient(135deg, #0D2137, #1A237E)" : "#9CA3AF" }}>
                       {getInitials(s.name)}
                     </div>
                     <div className="flex-1 min-w-0">
