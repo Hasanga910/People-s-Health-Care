@@ -8,9 +8,9 @@ import {
   getMyAppointments,
   getAppointmentPDF,
   markHoliday,
+  deleteHoliday,
   getHolidays,
   updateSessionConfig,
-  // ── New doctor-facing actions ──
   getTodayAppointments,
   startAppointment,
   completeAppointment,
@@ -31,18 +31,19 @@ router.patch('/:id/cancel', protect, authorize('patient'), cancelAppointment);
 router.get('/:id/pdf',      protect, getAppointmentPDF);
 
 
-// ── Doctor ────────────────────────────────────────────────────
-// GET  /api/appointments/today        → fetch today's schedule
-// PATCH /api/appointments/:id/start   → Pending → In Progress + returns appointment for form prefill
-// PATCH /api/appointments/:id/complete → In Progress → Completed
+// ── Doctor ─────────────────────────────────────────────────────
 router.get('/today',           protect, authorize('doctor'), getTodayAppointments);
 router.patch('/:id/start',     protect, authorize('doctor'), startAppointment);
 router.patch('/:id/complete',  protect, authorize('doctor'), completeAppointment);
 
 
-// ── Admin / Doctor config ───────────────────────────────────────
-router.post('/holidays',    protect, authorize('doctor'), markHoliday);
-router.patch('/config',     protect, authorize('doctor'), updateSessionConfig);
+// ── Admin / Doctor config ──────────────────────────────────────
+// POST   /api/appointments/holidays          body: { date, reason, session?, type? }
+// DELETE /api/appointments/holidays/:date    query: ?session=Morning|Evening|Both  (omit to delete all entries for that date)
+// PATCH  /api/appointments/config
+router.post('/holidays',           protect, authorize('doctor'), markHoliday);
+router.delete('/holidays/:date',   protect, authorize('doctor'), deleteHoliday);
+router.patch('/config',            protect, authorize('doctor'), updateSessionConfig);
 
 
 export default router;

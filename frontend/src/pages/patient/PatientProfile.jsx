@@ -2,21 +2,16 @@ import { useState, useEffect } from "react";
 import PatientLayout from "../../components/PatientLayout";
 import api from "../../services/api";
 
-// ── Helper: get initials from name ─────────────────────────
 function getInitials(name) {
   if (!name) return "P";
   return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 }
-
-// ── Helper: format birthday to readable date ───────────────
 function formatDate(dateStr) {
   if (!dateStr) return "N/A";
   return new Date(dateStr).toLocaleDateString("en-GB", {
     day: "2-digit", month: "long", year: "numeric",
   });
 }
-
-// ── Helper: calculate age from birthday ───────────────────
 function calculateAge(birthday) {
   if (!birthday) return null;
   const today = new Date();
@@ -26,181 +21,232 @@ function calculateAge(birthday) {
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
   return age;
 }
+const isValidPhone    = (v) => /^\d{10}$/.test(v);
+const isValidPassword = (v) => /^(?=.*[a-zA-Z])(?=.*\d).{6,}$/.test(v);
+const isValidEmail    = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+const isValidUsername = (v) => /^[a-zA-Z0-9_]{3,30}$/.test(v);
 
-// ── Reusable section card ──────────────────────────────────
 function Section({ title, children }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-100">
         <h3 className="font-semibold text-gray-800"
-          style={{ fontFamily: "'Playfair Display', serif" }}>
-          {title}
-        </h3>
+          style={{ fontFamily: "'Playfair Display', serif" }}>{title}</h3>
       </div>
       <div className="p-6">{children}</div>
     </div>
   );
 }
-
-// ── Reusable info row ──────────────────────────────────────
 function InfoRow({ label, value }) {
   return (
     <div className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-      <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">
-        {label}
-      </span>
-      <span className="text-sm text-gray-800 font-medium text-right max-w-[60%]">
-        {value || "N/A"}
-      </span>
+      <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">{label}</span>
+      <span className="text-sm text-gray-800 font-medium text-right max-w-[60%]">{value || "N/A"}</span>
+    </div>
+  );
+}
+function LockedField({ label, value }) {
+  return (
+    <div>
+      <label className="block text-xs text-gray-400 mb-1 flex items-center gap-1">
+        🔒 {label} <span className="text-gray-300">(cannot be changed)</span>
+      </label>
+      <div className="w-full px-3 py-2.5 rounded-xl border border-gray-100
+                      bg-gray-50 text-sm text-gray-500">
+        {value || "—"}
+      </div>
+    </div>
+  );
+}
+function EditField({ label, name, value, onChange, error, type = "text", placeholder = "" }) {
+  return (
+    <div>
+      <label className="block text-xs text-gray-500 mb-1">{label}</label>
+      <input
+        type={type} name={name} value={value}
+        onChange={onChange} placeholder={placeholder}
+        className={`w-full px-3 py-2.5 rounded-xl border text-sm
+                    focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+          error ? "border-red-400 bg-red-50" : "border-gray-200"
+        }`}
+      />
+      {error && <p className="text-xs text-red-500 mt-1">⚠ {error}</p>}
     </div>
   );
 }
 
-// ══════════════════════════════════════════════════════════
-// MAIN COMPONENT
-// ══════════════════════════════════════════════════════════
 export default function PatientProfile() {
-  const [activeTab, setActiveTab]   = useState("overview");
-  const [editing, setEditing]       = useState(false);
-  const [user, setUser]             = useState(null);
-  const [loading, setLoading]       = useState(true);
-  const [saving, setSaving]         = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
+  const [user, setUser]           = useState(null);
+  const [loading, setLoading]     = useState(true);
+  const [saving, setSaving]       = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
-  const [errorMsg, setErrorMsg]     = useState("");
+  const [errors, setErrors]       = useState({});
 
-  // ── Edit form state ──────────────────────────────────────
-  // These hold the values while the user is editing
+  // ── Editable form state ──────────────────────────────────
   const [form, setForm] = useState({
-    name:                   "",
-    telephone:              "",
-    gender:                 "",
-    birthday:               "",
-    bloodGroup:             "",
-    allergies:              "",
-    chronicConditions:      "",
-    currentMedications:     "",
+    // Editable fields
     emergencyContactName:   "",
     emergencyContactNumber: "",
     address:                "",
+    allergies:              "",
+    chronicConditions:      "",
+    currentMedications:     "",
+    // Password change
+    currentPassword: "",
+    newPassword:     "",
+    confirmPassword: "",
+    // Username → Email upgrade
+    newEmail:        "",
+    // Username change (only if no email)
+    newUsername:     "",
   });
 
-  // ── Fetch real user data on page load ───────────────────
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        // First load from localStorage for instant display
         const stored = localStorage.getItem("user");
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          setUser(parsed);
-          populateForm(parsed);
-        }
-
-        // Then fetch fresh data from backend
+        if (stored) { const p = JSON.parse(stored); setUser(p); populateForm(p); }
         const res = await api.get("/auth/me");
         if (res.data.success) {
           setUser(res.data.user);
           populateForm(res.data.user);
-          // Update localStorage with fresh data
           localStorage.setItem("user", JSON.stringify(res.data.user));
         }
-      } catch (err) {
-        setErrorMsg("Could not load profile data.");
-      } finally {
-        setLoading(false);
-      }
+      } catch { /* silently fail */ }
+      finally { setLoading(false); }
     };
-
     fetchUser();
   }, []);
 
-  // ── Populate form fields from user object ───────────────
   const populateForm = (u) => {
-    setForm({
-      name:                   u.name || "",
-      telephone:              u.telephone || "",
-      gender:                 u.patientDetails?.gender || "",
-      birthday:               u.patientDetails?.birthday
-                                ? u.patientDetails.birthday.split("T")[0]
-                                : "",
-      // .split("T")[0] converts "1990-05-12T00:00:00.000Z" → "1990-05-12"
-      // because <input type="date"> needs "YYYY-MM-DD" format
-      bloodGroup:             u.patientDetails?.bloodGroup || "",
-      allergies:              (u.patientDetails?.allergies || []).join(", "),
-      // allergies is an array in DB e.g. ["Penicillin","Dust"]
-      // We join it to a string for the text input: "Penicillin, Dust"
-      chronicConditions:      u.patientDetails?.chronicConditions || "",
-      currentMedications:     u.patientDetails?.currentMedications || "",
-      emergencyContactName:   u.patientDetails?.emergencyContactName || "",
+    setForm((prev) => ({
+      ...prev,
+      emergencyContactName:   u.patientDetails?.emergencyContactName   || "",
       emergencyContactNumber: u.patientDetails?.emergencyContactNumber || "",
-      address:                u.patientDetails?.address || "",
-    });
+      address:                u.patientDetails?.address                || "",
+      allergies:              (u.patientDetails?.allergies || []).join(", "),
+      chronicConditions:      u.patientDetails?.chronicConditions      || "",
+      currentMedications:     u.patientDetails?.currentMedications     || "",
+    }));
   };
 
-  // ── Handle form field changes ────────────────────────────
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
-    // [e.target.name] is computed property — updates only the changed field
+    if (errors[e.target.name]) setErrors({ ...errors, [e.target.name]: "" });
   };
 
-  // ── Submit edit form ─────────────────────────────────────
-  const handleSave = async (e) => {
+  // ── Save contact + medical details ──────────────────────
+  const handleSaveDetails = async (e) => {
     e.preventDefault();
-    // e.preventDefault() stops the page from refreshing on form submit
-    setSaving(true);
-    setErrorMsg("");
-    setSuccessMsg("");
+    const newErrors = {};
 
+    if (form.emergencyContactNumber && !isValidPhone(form.emergencyContactNumber))
+      newErrors.emergencyContactNumber = "Must be exactly 10 digits";
+
+    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
+
+    setSaving(true);
+    setSuccessMsg("");
     try {
-      const payload = {
-        name:      form.name,
-        telephone: form.telephone,
+      const res = await api.put("/auth/me", {
         patientDetails: {
-          gender:                 form.gender,
-          birthday:               form.birthday,
-          bloodGroup:             form.bloodGroup,
-          allergies:              form.allergies
-                                    .split(",")
-                                    .map((a) => a.trim())
-                                    .filter(Boolean),
-          // Convert "Penicillin, Dust" back to ["Penicillin", "Dust"]
-          chronicConditions:      form.chronicConditions,
-          currentMedications:     form.currentMedications,
           emergencyContactName:   form.emergencyContactName,
           emergencyContactNumber: form.emergencyContactNumber,
           address:                form.address,
+          allergies:              form.allergies.split(",").map(a => a.trim()).filter(Boolean),
+          chronicConditions:      form.chronicConditions,
+          currentMedications:     form.currentMedications,
         },
-      };
-
-      const res = await api.put("/auth/me", payload);
-      // PUT /api/auth/me is the existing route your friend built
-
+      });
       if (res.data.success) {
         setUser(res.data.user);
         localStorage.setItem("user", JSON.stringify(res.data.user));
-        // Update localStorage so sidebar also shows new name
-        setSuccessMsg("Profile updated successfully!");
-        setEditing(false);
-        // Close edit form on success
+        setSuccessMsg("Details updated successfully!");
       }
     } catch (err) {
-      setErrorMsg(
-        err.response?.data?.message || "Failed to update profile. Try again."
-      );
-    } finally {
-      setSaving(false);
-    }
+      setErrors({ details: err.response?.data?.message || "Failed to save. Try again." });
+    } finally { setSaving(false); }
   };
 
-  // ── Cancel editing ───────────────────────────────────────
-  const handleCancelEdit = () => {
-    populateForm(user);
-    // Reset form back to current saved values
-    setEditing(false);
-    setErrorMsg("");
+  // ── Change password ──────────────────────────────────────
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    const newErrors = {};
+
+    if (!form.currentPassword) newErrors.currentPassword = "Current password is required";
+    if (!form.newPassword) newErrors.newPassword = "New password is required";
+    else if (!isValidPassword(form.newPassword))
+      newErrors.newPassword = "Must be 6+ characters with letters and numbers";
+    if (form.newPassword !== form.confirmPassword)
+      newErrors.confirmPassword = "Passwords do not match";
+
+    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
+
+    setSaving(true);
+    setSuccessMsg("");
+    try {
+      const res = await api.put("/auth/me", {
+        currentPassword: form.currentPassword,
+        newPassword:     form.newPassword,
+      });
+      if (res.data.success) {
+        setSuccessMsg("Password changed successfully!");
+        setForm({ ...form, currentPassword: "", newPassword: "", confirmPassword: "" });
+      }
+    } catch (err) {
+      setErrors({ currentPassword: err.response?.data?.message || "Failed. Try again." });
+    } finally { setSaving(false); }
   };
 
-  // ── Loading state ────────────────────────────────────────
+  // ── Username → Email upgrade ─────────────────────────────
+  const handleUpgradeToEmail = async (e) => {
+    e.preventDefault();
+    const newErrors = {};
+    if (!form.newEmail) newErrors.newEmail = "Email address is required";
+    else if (!isValidEmail(form.newEmail))
+      newErrors.newEmail = "Enter a valid email address";
+    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
+
+    setSaving(true);
+    setSuccessMsg("");
+    try {
+      const res = await api.put("/auth/me", { email: form.newEmail });
+      if (res.data.success) {
+        setUser(res.data.user);
+        localStorage.setItem("user", JSON.stringify(res.data.user));
+        setSuccessMsg("Email added successfully! You can now login with your email.");
+        setForm({ ...form, newEmail: "" });
+      }
+    } catch (err) {
+      setErrors({ newEmail: err.response?.data?.message || "Failed. Try again." });
+    } finally { setSaving(false); }
+  };
+
+  // ── Change username ──────────────────────────────────────
+  const handleChangeUsername = async (e) => {
+    e.preventDefault();
+    const newErrors = {};
+    if (!form.newUsername) newErrors.newUsername = "Username is required";
+    else if (!isValidUsername(form.newUsername))
+      newErrors.newUsername = "3-30 characters, letters/numbers/underscore only";
+    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
+
+    setSaving(true);
+    setSuccessMsg("");
+    try {
+      const res = await api.put("/auth/me", { username: form.newUsername });
+      if (res.data.success) {
+        setUser(res.data.user);
+        localStorage.setItem("user", JSON.stringify(res.data.user));
+        setSuccessMsg("Username updated successfully!");
+        setForm({ ...form, newUsername: "" });
+      }
+    } catch (err) {
+      setErrors({ newUsername: err.response?.data?.message || "Failed. Try again." });
+    } finally { setSaving(false); }
+  };
+
   if (loading) {
     return (
       <PatientLayout activePage="My Profile">
@@ -211,73 +257,60 @@ export default function PatientProfile() {
     );
   }
 
-  // ── Derived display values ───────────────────────────────
-  const age        = calculateAge(user?.patientDetails?.birthday);
-  const initials   = getInitials(user?.name);
-  const bloodGroup = user?.patientDetails?.bloodGroup;
+  const age          = calculateAge(user?.patientDetails?.birthday);
+  const initials     = getInitials(user?.name);
+  const bloodGroup   = user?.patientDetails?.bloodGroup;
+  const hasEmail     = !!user?.email;
+  const hasUsername  = !!user?.username;
   const registeredDate = user?.createdAt
     ? new Date(user.createdAt).toLocaleDateString("en-GB", {
-        day: "2-digit", month: "short", year: "numeric",
-      })
+        day: "2-digit", month: "short", year: "numeric" })
     : "N/A";
 
   const TABS = [
-    { id: "overview", label: "Overview" },
+    { id: "overview", label: "Overview"     },
     { id: "medical",  label: "Medical Info" },
     { id: "edit",     label: "Edit Profile" },
   ];
 
-  // ════════════════════════════════════════════════════════
-  // RENDER
-  // ════════════════════════════════════════════════════════
   return (
     <PatientLayout activePage="My Profile">
       <div className="p-6 space-y-5">
 
-        {/* ── Success / Error messages ── */}
         {successMsg && (
           <div className="bg-green-50 border border-green-200 text-green-700
-                          text-sm px-4 py-3 rounded-xl">
+                          text-sm px-4 py-3 rounded-xl flex items-center gap-2">
             ✓ {successMsg}
-          </div>
-        )}
-        {errorMsg && (
-          <div className="bg-red-50 border border-red-200 text-red-700
-                          text-sm px-4 py-3 rounded-xl">
-            {errorMsg}
+            <button onClick={() => setSuccessMsg("")}
+              className="ml-auto text-green-400 hover:text-green-600">✕</button>
           </div>
         )}
 
-        {/* ── Profile Header Card ── */}
+        {/* ── Header ── */}
         <div className="rounded-2xl overflow-hidden"
           style={{ background: "linear-gradient(135deg, #0D2137 0%, #1565C0 60%, #00ACC1 100%)" }}>
-
           <div className="p-6 flex flex-col md:flex-row items-start md:items-center gap-5">
-
-            {/* Avatar */}
             <div className="relative">
               <div className="w-20 h-20 rounded-2xl flex items-center justify-center
-                              text-2xl font-bold text-white flex-shrink-0 border-4 border-white/20"
+                              text-2xl font-bold text-white border-4 border-white/20"
                 style={{ background: "rgba(255,255,255,0.15)" }}>
                 {initials}
               </div>
               <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full
                               bg-green-400 border-2 border-white" />
             </div>
-
-            {/* Name and badges */}
             <div className="flex-1">
               <h2 style={{ fontFamily: "'Playfair Display', serif",
-                           fontWeight: 700, fontSize: "1.5rem", color: "white" }}>
-                {user?.name || "Patient"}
+                fontWeight: 700, fontSize: "1.5rem", color: "white" }}>
+                {user?.name}
               </h2>
               <div className="flex flex-wrap gap-3 mt-2">
                 {[
-                  { label: "ID",           val: user?.userId },
-                  { label: "Age",          val: age ? `${age} yrs` : null },
-                  { label: "Blood Group",  val: bloodGroup },
-                  { label: "Since",        val: registeredDate },
-                ].filter(item => item.val).map((item) => (
+                  { label: "ID",          val: user?.userId },
+                  { label: "Age",         val: age ? `${age} yrs` : null },
+                  { label: "Blood Group", val: bloodGroup },
+                  { label: "Since",       val: registeredDate },
+                ].filter(i => i.val).map((item) => (
                   <div key={item.label}
                     className="flex items-center gap-1.5 bg-white/10 rounded-full px-3 py-1">
                     <span className="text-white/50 text-xs">{item.label}:</span>
@@ -286,22 +319,13 @@ export default function PatientProfile() {
                 ))}
               </div>
             </div>
-
-            {/* Edit button */}
-            <button
-              onClick={() => { setActiveTab("edit"); setEditing(true); }}
+            <button onClick={() => setActiveTab("edit")}
               className="flex items-center gap-2 px-5 py-2.5 bg-white/15
                          hover:bg-white/25 border border-white/20 rounded-xl
-                         text-white text-sm font-medium transition flex-shrink-0"
-            >
-              <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-              </svg>
-              Edit Profile
+                         text-white text-sm font-medium transition">
+              ✏ Edit Profile
             </button>
           </div>
-
-          {/* Tab bar */}
           <div className="flex border-t border-white/10 overflow-x-auto">
             {TABS.map((tab) => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
@@ -310,24 +334,20 @@ export default function PatientProfile() {
                   activeTab === tab.id
                     ? "text-white border-cyan-300"
                     : "text-white/50 border-transparent hover:text-white/80"
-                }`}>
-                {tab.label}
-              </button>
+                }`}>{tab.label}</button>
             ))}
           </div>
         </div>
 
-        {/* ══════════════════════════════════════════════════
-            TAB: Overview — shows real data from database
-        ══════════════════════════════════════════════════ */}
+        {/* ══ TAB: Overview ══ */}
         {activeTab === "overview" && (
           <div className="grid md:grid-cols-2 gap-5">
-
             <Section title="Personal Information">
               <div className="space-y-1">
                 <InfoRow label="Full Name"    value={user?.name} />
                 <InfoRow label="Patient ID"   value={user?.userId} />
-                <InfoRow label="Email"        value={user?.email} />
+                <InfoRow label="Login"
+                  value={user?.email || user?.username || "—"} />
                 <InfoRow label="Phone"        value={user?.telephone} />
                 <InfoRow label="Date of Birth"
                   value={formatDate(user?.patientDetails?.birthday)} />
@@ -335,23 +355,20 @@ export default function PatientProfile() {
                   value={age ? `${age} years` : null} />
                 <InfoRow label="Gender"
                   value={user?.patientDetails?.gender} />
-                <InfoRow label="Blood Group"
-                  value={user?.patientDetails?.bloodGroup} />
+                <InfoRow label="Blood Group"  value={bloodGroup} />
               </div>
             </Section>
-
             <div className="space-y-5">
               <Section title="Address">
                 <p className="text-sm text-gray-700">
                   {user?.patientDetails?.address || "No address saved"}
                 </p>
               </Section>
-
               <Section title="Emergency Contact">
                 <div className="flex items-center gap-3 p-4 bg-red-50
                                 rounded-xl border border-red-100">
                   <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center
-                                  justify-center text-lg flex-shrink-0">🆘</div>
+                                  justify-center text-lg">🆘</div>
                   <div>
                     <div className="font-semibold text-gray-800">
                       {user?.patientDetails?.emergencyContactName || "Not set"}
@@ -366,19 +383,15 @@ export default function PatientProfile() {
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════
-            TAB: Medical Info
-        ══════════════════════════════════════════════════ */}
+        {/* ══ TAB: Medical Info ══ */}
         {activeTab === "medical" && (
           <div className="grid md:grid-cols-2 gap-5">
-
             <Section title="Allergies">
               {user?.patientDetails?.allergies?.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {user.patientDetails.allergies.map((a) => (
-                    <span key={a}
-                      className="px-3 py-1.5 bg-red-50 text-red-700 border
-                                 border-red-100 rounded-full text-sm font-medium">
+                    <span key={a} className="px-3 py-1.5 bg-red-50 text-red-700
+                                             border border-red-100 rounded-full text-sm">
                       ⚠️ {a}
                     </span>
                   ))}
@@ -387,182 +400,181 @@ export default function PatientProfile() {
                 <p className="text-sm text-gray-400">No allergies recorded</p>
               )}
             </Section>
-
             <Section title="Chronic Conditions">
               <p className="text-sm text-gray-700">
                 {user?.patientDetails?.chronicConditions || "None recorded"}
               </p>
             </Section>
-
             <Section title="Current Medications">
               <p className="text-sm text-gray-700">
                 {user?.patientDetails?.currentMedications || "None recorded"}
               </p>
             </Section>
-
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════
-            TAB: Edit Profile — real working form
-        ══════════════════════════════════════════════════ */}
+        {/* ══ TAB: Edit Profile ══ */}
         {activeTab === "edit" && (
-          <Section title="Edit Profile">
-            <form onSubmit={handleSave} className="space-y-5">
+          <div className="space-y-5">
 
-              {/* ── Basic Info ── */}
-              <div>
-                <h4 className="text-xs font-semibold text-gray-400 uppercase
-                               tracking-wide mb-3">Basic Information</h4>
-                <div className="grid md:grid-cols-2 gap-4">
+            {/* ── Locked fields notice ── */}
+            <div className="bg-amber-50 border border-amber-200 rounded-xl
+                            px-4 py-3 text-xs text-amber-800 flex items-center gap-2">
+              🔒 Some fields like name, birthday, gender, blood group, email and
+              telephone cannot be changed after registration. Contact the admin
+              if these need to be corrected.
+            </div>
 
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Full Name</label>
-                    <input name="name" value={form.name} onChange={handleChange}
-                      required
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200
-                                 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Phone</label>
-                    <input name="telephone" value={form.telephone} onChange={handleChange}
-                      required
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200
-                                 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Date of Birth</label>
-                    <input type="date" name="birthday" value={form.birthday}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200
-                                 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Gender</label>
-                    <select name="gender" value={form.gender} onChange={handleChange}
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200
-                                 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-                      <option value="">Select gender</option>
-                      <option>Male</option>
-                      <option>Female</option>
-                      <option>Other</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Blood Group</label>
-                    <select name="bloodGroup" value={form.bloodGroup} onChange={handleChange}
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200
-                                 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-                      <option value="">Select blood group</option>
-                      {["A+","A-","B+","B-","AB+","AB-","O+","O-","Unknown"].map(bg => (
-                        <option key={bg}>{bg}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Address</label>
-                    <input name="address" value={form.address} onChange={handleChange}
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200
-                                 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-                  </div>
-
-                </div>
+            {/* ── Section 1: Locked fields (read only display) ── */}
+            <Section title="Registered Information (Read Only)">
+              <div className="grid md:grid-cols-2 gap-4">
+                <LockedField label="Full Name"    value={user?.name} />
+                <LockedField label="Telephone"    value={user?.telephone} />
+                <LockedField label="Date of Birth"
+                  value={formatDate(user?.patientDetails?.birthday)} />
+                <LockedField label="Gender"
+                  value={user?.patientDetails?.gender} />
+                <LockedField label="Blood Group"
+                  value={user?.patientDetails?.bloodGroup} />
+                <LockedField label="Email / Username"
+                  value={user?.email || user?.username} />
               </div>
+            </Section>
 
-              {/* ── Medical Info ── */}
-              <div>
-                <h4 className="text-xs font-semibold text-gray-400 uppercase
-                               tracking-wide mb-3">Medical Information</h4>
+            {/* ── Section 2: Editable contact + medical ── */}
+            <Section title="Update Contact & Medical Details">
+              <form onSubmit={handleSaveDetails} className="space-y-5">
+                {errors.details && (
+                  <p className="text-xs text-red-500">⚠ {errors.details}</p>
+                )}
                 <div className="grid md:grid-cols-2 gap-4">
-
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">
-                      Allergies
-                      <span className="text-gray-400 font-normal ml-1">
-                        (separate with commas)
-                      </span>
-                    </label>
-                    <input name="allergies" value={form.allergies}
-                      onChange={handleChange}
-                      placeholder="e.g. Penicillin, Dust, Pollen"
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200
-                                 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">
-                      Chronic Conditions
-                    </label>
-                    <input name="chronicConditions" value={form.chronicConditions}
-                      onChange={handleChange}
-                      placeholder="e.g. Diabetes, Hypertension"
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200
-                                 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-                  </div>
-
+                  <EditField label="Emergency Contact Name"
+                    name="emergencyContactName"
+                    value={form.emergencyContactName} onChange={handleChange}
+                    placeholder="e.g. Kamali Perera" />
+                  <EditField label="Emergency Contact Number"
+                    name="emergencyContactNumber"
+                    value={form.emergencyContactNumber} onChange={handleChange}
+                    placeholder="e.g. 0771234567"
+                    error={errors.emergencyContactNumber} />
                   <div className="md:col-span-2">
-                    <label className="block text-xs text-gray-500 mb-1">
-                      Current Medications
-                    </label>
-                    <input name="currentMedications" value={form.currentMedications}
-                      onChange={handleChange}
-                      placeholder="e.g. Metformin 500mg, Lisinopril 10mg"
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200
-                                 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                    <EditField label="Home Address" name="address"
+                      value={form.address} onChange={handleChange}
+                      placeholder="No., Street, City" />
                   </div>
-
+                  <EditField label="Allergies (comma separated)"
+                    name="allergies"
+                    value={form.allergies} onChange={handleChange}
+                    placeholder="e.g. Penicillin, Dust, Pollen" />
+                  <EditField label="Chronic Conditions"
+                    name="chronicConditions"
+                    value={form.chronicConditions} onChange={handleChange}
+                    placeholder="e.g. Diabetes, Hypertension" />
+                  <div className="md:col-span-2">
+                    <EditField label="Current Medications"
+                      name="currentMedications"
+                      value={form.currentMedications} onChange={handleChange}
+                      placeholder="e.g. Metformin 500mg twice daily" />
+                  </div>
                 </div>
-              </div>
-
-              {/* ── Emergency Contact ── */}
-              <div>
-                <h4 className="text-xs font-semibold text-gray-400 uppercase
-                               tracking-wide mb-3">Emergency Contact</h4>
-                <div className="grid md:grid-cols-2 gap-4">
-
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Contact Name</label>
-                    <input name="emergencyContactName" value={form.emergencyContactName}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200
-                                 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Contact Number</label>
-                    <input name="emergencyContactNumber" value={form.emergencyContactNumber}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200
-                                 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-                  </div>
-
-                </div>
-              </div>
-
-              {/* ── Action buttons ── */}
-              <div className="flex gap-3 pt-2">
                 <button type="submit" disabled={saving}
-                  className="px-6 py-2.5 rounded-xl text-white text-sm font-semibold
-                             disabled:opacity-60 transition"
+                  className="px-6 py-2.5 rounded-xl text-white text-sm
+                             font-semibold disabled:opacity-60 transition"
                   style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}>
                   {saving ? "Saving..." : "Save Changes"}
                 </button>
-                <button type="button" onClick={handleCancelEdit}
-                  className="px-6 py-2.5 rounded-xl border border-gray-200 text-gray-600
-                             text-sm font-medium hover:bg-gray-50 transition">
-                  Cancel
+              </form>
+            </Section>
+
+            {/* ── Section 3: Change password ── */}
+            <Section title="Change Password">
+              <form onSubmit={handleChangePassword} className="space-y-4">
+                <div className="grid md:grid-cols-3 gap-4">
+                  <EditField label="Current Password"
+                    name="currentPassword" type="password"
+                    value={form.currentPassword} onChange={handleChange}
+                    placeholder="Current password"
+                    error={errors.currentPassword} />
+                  <EditField label="New Password"
+                    name="newPassword" type="password"
+                    value={form.newPassword} onChange={handleChange}
+                    placeholder="Min 6 chars with letters & numbers"
+                    error={errors.newPassword} />
+                  <EditField label="Confirm New Password"
+                    name="confirmPassword" type="password"
+                    value={form.confirmPassword} onChange={handleChange}
+                    placeholder="Re-enter new password"
+                    error={errors.confirmPassword} />
+                </div>
+                {form.newPassword && (
+                  <p className={`text-xs ${
+                    isValidPassword(form.newPassword)
+                      ? "text-green-600" : "text-amber-600"
+                  }`}>
+                    {isValidPassword(form.newPassword)
+                      ? "✓ Strong password"
+                      : "⚠ Must be 6+ characters with letters and numbers"}
+                  </p>
+                )}
+                <button type="submit" disabled={saving}
+                  className="px-6 py-2.5 rounded-xl text-white text-sm
+                             font-semibold disabled:opacity-60 transition
+                             bg-gray-700 hover:bg-gray-800">
+                  {saving ? "Saving..." : "Change Password"}
                 </button>
-              </div>
+              </form>
+            </Section>
 
-            </form>
-          </Section>
+            {/* ── Section 4: Username → Email upgrade ── */}
+            {!hasEmail && hasUsername && (
+              <Section title="Add Email Address">
+                <p className="text-sm text-gray-500 mb-4">
+                  You registered with the username <strong>{user.username}</strong>.
+                  Add your email address to also login with email in the future.
+                </p>
+                <form onSubmit={handleUpgradeToEmail} className="space-y-4">
+                  <EditField label="Your Email Address"
+                    name="newEmail" type="email"
+                    value={form.newEmail} onChange={handleChange}
+                    placeholder="you@example.com"
+                    error={errors.newEmail} />
+                  <button type="submit" disabled={saving}
+                    className="px-6 py-2.5 rounded-xl text-white text-sm
+                               font-semibold disabled:opacity-60 transition"
+                    style={{ background: "linear-gradient(135deg, #00897B, #00ACC1)" }}>
+                    {saving ? "Saving..." : "Add Email Address"}
+                  </button>
+                </form>
+              </Section>
+            )}
+
+            {/* ── Section 5: Change username (only if no email) ── */}
+            {!hasEmail && hasUsername && (
+              <Section title="Change Username">
+                <p className="text-sm text-gray-500 mb-4">
+                  Current username: <strong>{user.username}</strong>
+                </p>
+                <form onSubmit={handleChangeUsername} className="space-y-4">
+                  <EditField label="New Username"
+                    name="newUsername"
+                    value={form.newUsername} onChange={handleChange}
+                    placeholder="e.g. kamal_perera_2006"
+                    error={errors.newUsername}  />
+                  <p className="text-xs text-gray-400">
+                    3-30 characters. Letters, numbers and underscore only.
+                  </p>
+                  <button type="submit" disabled={saving}
+                    className="px-6 py-2.5 rounded-xl text-white text-sm
+                               font-semibold disabled:opacity-60 transition
+                               bg-gray-600 hover:bg-gray-700">
+                    {saving ? "Saving..." : "Change Username"}
+                  </button>
+                </form>
+              </Section>
+            )}
+
+          </div>
         )}
-
       </div>
     </PatientLayout>
   );

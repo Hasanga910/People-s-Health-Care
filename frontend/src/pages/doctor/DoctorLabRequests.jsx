@@ -1,14 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import DoctorLayout from "../../components/DoctorLayout";
 import api from "../../services/api";
 import PatientSearchInput from "../../components/PatientSearchInput";
 
 const LAB_TESTS = [
-  "CBC (Full Blood Count)", "Fasting Blood Sugar", "Random Blood Sugar", "HbA1c",
-  "Lipid Profile", "Liver Function Test (LFT)", "Kidney Function Test (KFT)",
-  "Creatinine", "Thyroid Function (TSH)", "Urine Analysis", "Urine Culture",
-  "ECG", "Blood Culture", "Serum Electrolytes", "Iron Studies",
-  "Vitamin B12", "Vitamin D", "Widal Test", "Dengue NS1 Antigen",
+  "FBC",
+  "ESR",
+  "FBS",
+  "Liver Profile",
+  "Renal Profile",
+  "Thyroid Profile",
+  "Serum Vit D Level",
+  "Dengue Ag",
 ];
 
 const STATUS_CONFIG = {
@@ -217,31 +221,82 @@ function LabRequestModal({ onClose, onSaved, existing = null }) {
 
 // ── Main Page ──────────────────────────────────────────────────
 export default function DoctorLabRequests() {
+  const location = useLocation();
+  const navigate  = useNavigate();
+
   const [labRequests, setLabRequests] = useState([]);
   const [loading, setLoading]         = useState(true);
   const [showModal, setShowModal]     = useState(false);
   const [editReq, setEditReq]         = useState(null);
   const [expandedId, setExpandedId]   = useState(null);
+  const [expandTarget, setExpandTarget] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [search, setSearch]           = useState("");
   const [cancelling, setCancelling]   = useState(null);
   const [toast, setToast]             = useState(null);
+  const [labResultRefs, setLabResultRefs] = useState({}); // labRequestId → testId
+
+  // DOM refs per card — for scroll-into-view when opened via ?open=
+  const cardRefs = useRef({});
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3500);
   };
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const res = await api.get("/lab-requests");
       setLabRequests(res.data.labRequests || []);
     } catch { showToast("Failed to load lab requests", "error"); }
     finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  // ── Read ?open=LR-xxxx — auto-expand that lab request card ──
+  useEffect(() => {
+    const params   = new URLSearchParams(location.search);
+    const openLrId = params.get("open");
+    if (!openLrId) return;
+    navigate("/doctor/lab-requests", { replace: true });
+    setExpandTarget(openLrId);
+  }, [location.search, navigate]);
+
+  // ── Resolve expandTarget once lab requests are loaded ────────
+  useEffect(() => {
+    if (!expandTarget || loading || labRequests.length === 0) return;
+    const match = labRequests.find(r => r.labRequestId === expandTarget);
+    if (!match) return;
+    setExpandedId(match._id);
+    setExpandTarget(null);
+    setSearch("");
+    setStatusFilter("all");
+    setSourceFilter("all");
+    setTimeout(() => {
+      cardRefs.current[match._id]?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 150);
+  }, [expandTarget, loading, labRequests]);
+
+  const fetchLabResultRef = async (labRequestId) => {
+    if (labResultRefs[labRequestId] !== undefined) return; // already fetched
+    try {
+      const res = await api.get(`/lab-results?labRequestRef=${labRequestId}&limit=1`);
+      const result = res.data.results?.[0];
+      setLabResultRefs(prev => ({ ...prev, [labRequestId]: result?.testId || null }));
+    } catch {
+      setLabResultRefs(prev => ({ ...prev, [labRequestId]: null }));
+    }
   };
 
-  useEffect(() => { load(); }, []);
+  const handleExpand = (req) => {
+    const newId = expandedId === req._id ? null : req._id;
+    setExpandedId(newId);
+    if (newId && req.status === "completed") {
+      fetchLabResultRef(req.labRequestId);
+    }
+  };
 
   const handleSaved = (lr, isEdit = false) => {
     if (isEdit) {
@@ -370,10 +425,16 @@ export default function DoctorLabRequests() {
               const isExpanded = expandedId === req._id;
 
               return (
-                <div key={req._id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div
+                  key={req._id}
+                  ref={el => { cardRefs.current[req._id] = el; }}
+                  className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all ${
+                    expandedId === req._id ? "border-blue-300 shadow-blue-100" : "border-gray-100"
+                  }`}
+                >
                   {/* Row */}
                   <div className="flex items-center gap-4 px-6 py-4 cursor-pointer hover:bg-gray-50 transition"
-                    onClick={() => setExpandedId(isExpanded ? null : req._id)}>
+                    onClick={() => handleExpand(req)}>
                     <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${sConfig.dot}`}/>
                     <div className="text-xs font-mono text-gray-400 w-32 flex-shrink-0">{req.labRequestId}</div>
 
@@ -432,11 +493,38 @@ export default function DoctorLabRequests() {
                         By <strong className="ml-1 text-gray-700">{req.doctorName}</strong>
                         {req.prescriptionRef && (
                           <><span className="mx-2 text-gray-300">·</span>
-                          Linked to <strong className="ml-1 text-blue-600">{req.prescriptionRef}</strong></>
+                          Linked to{" "}
+                          <button
+                            onClick={e => { e.stopPropagation(); navigate(`/doctor/prescriptions?open=${req.prescriptionRef}`); }}
+                            className="ml-1 font-mono text-blue-600 hover:text-blue-800 hover:underline transition font-semibold"
+                            title="View this prescription"
+                          >
+                            {req.prescriptionRef}
+                          </button></>
                         )}
                         {req.completedAt && (
                           <><span className="mx-2 text-gray-300">·</span>
                           Completed <strong className="ml-1 text-green-700">{formatDateTime(req.completedAt)}</strong></>
+                        )}
+                        {req.status === "completed" && (
+                          <><span className="mx-2 text-gray-300">·</span>
+                          Lab Result:{" "}
+                          {labResultRefs[req.labRequestId] === undefined ? (
+                            <span className="ml-1 text-gray-400 text-xs">loading…</span>
+                          ) : labResultRefs[req.labRequestId] ? (
+                            <button
+                              onClick={e => { e.stopPropagation(); navigate(`/doctor/lab-results?open=${labResultRefs[req.labRequestId]}`); }}
+                              className="ml-1 font-mono text-teal-600 hover:text-teal-800 hover:underline transition font-semibold inline-flex items-center gap-1"
+                              title="View lab result"
+                            >
+                              {labResultRefs[req.labRequestId]}
+                              <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 flex-shrink-0">
+                                <path fillRule="evenodd" d="M6.293 3.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L8.586 9H2a1 1 0 110-2h6.586L6.293 4.707a1 1 0 010-1.414z" clipRule="evenodd"/>
+                              </svg>
+                            </button>
+                          ) : (
+                            <span className="ml-1 text-gray-400 text-xs font-mono">not yet available</span>
+                          )}</>
                         )}
                       </div>
 

@@ -180,9 +180,9 @@ export default function DoctorSettings() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
 
-  const [profile, setProfile] = useState({ name: "", telephone: "", photo: "" });
+  const [profile, setProfile] = useState({ name: "", email: "", telephone: "", photo: "" });
   const [professional, setProfessional] = useState({
-    slmcRegisterNumber: "", medicalCenterRegisterNumber: "", workingExperience: "", certifications: "",
+    slmcRegisterNumber: "", workingExperience: "", certifications: "",
   });
   const [security, setSecurity] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [showPasswords, setShowPasswords] = useState({ current: false, new: false, confirm: false });
@@ -191,11 +191,10 @@ export default function DoctorSettings() {
     api.get("/auth/me").then((res) => {
       const u = res.data.user;
       setUser(u);
-      setProfile({ name: u.name || "", telephone: u.telephone || "", photo: u.photo || "" });
+      setProfile({ name: u.name || "", email: u.email || "", telephone: u.telephone || "", photo: u.photo || "" });
       const d = u.doctorDetails || {};
       setProfessional({
         slmcRegisterNumber: d.slmcRegisterNumber || "",
-        medicalCenterRegisterNumber: d.medicalCenterRegisterNumber || "",
         workingExperience: d.workingExperience || "",
         certifications: Array.isArray(d.certifications) ? d.certifications.join(", ") : (d.certifications || ""),
       });
@@ -207,16 +206,22 @@ export default function DoctorSettings() {
 
   const handleProfileSave = async () => {
     if (!profile.name.trim()) return showToast("Name cannot be empty", "error");
+    if (!profile.email.trim()) return showToast("Email cannot be empty", "error");
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(profile.email.trim())) return showToast("Please enter a valid email address", "error");
     setSaving(true);
     try {
       const res = await api.put("/auth/me", {
-        name: profile.name,
+        name:      profile.name,
+        email:     profile.email.trim().toLowerCase(),
         telephone: profile.telephone,
-        photo: profile.photo || null,
+        photo:     profile.photo || null,
       });
       const stored = authService.getCurrentUser();
       if (stored) localStorage.setItem("user", JSON.stringify({ ...stored, ...res.data.user }));
       setUser((u) => ({ ...u, ...res.data.user }));
+      // Keep profile email in sync with what the server confirmed
+      setProfile(p => ({ ...p, email: res.data.user.email || p.email }));
       showToast("Profile updated successfully");
     } catch (err) {
       showToast(err.response?.data?.message || "Failed to update profile", "error");
@@ -371,8 +376,13 @@ export default function DoctorSettings() {
                     </Field>
                   </div>
 
-                  <Field label="Email Address" hint="Email cannot be changed. Contact admin if needed.">
-                    <Input value={user?.email || ""} disabled className="bg-gray-50 text-gray-400 cursor-not-allowed" />
+                  <Field label="Email Address" hint="Must be unique — you'll use this to log in.">
+                    <Input
+                      type="email"
+                      value={profile.email}
+                      onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                      placeholder="doctor@example.com"
+                    />
                   </Field>
 
                   <div className="pt-2 flex justify-end">
@@ -399,14 +409,6 @@ export default function DoctorSettings() {
                         value={professional.slmcRegisterNumber}
                         onChange={(v) => setProfessional({ ...professional, slmcRegisterNumber: v })}
                         placeholder="SLMC-12345"
-                      />
-                    </Field>
-                    <Field label="Medical Center Register No." hint='Auto-prefix "MCR-" applied'>
-                      <PrefixInput
-                        prefix="MCR-"
-                        value={professional.medicalCenterRegisterNumber}
-                        onChange={(v) => setProfessional({ ...professional, medicalCenterRegisterNumber: v })}
-                        placeholder="MCR-12345"
                       />
                     </Field>
                   </div>

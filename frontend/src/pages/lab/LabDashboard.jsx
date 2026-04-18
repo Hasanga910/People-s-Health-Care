@@ -8,7 +8,7 @@ const ACTIVE_REQUESTS = [
 ];
 
 const COMPLETED_TODAY = [
-  { id: "LR-2026-041", patient: "Kamal Perera", tests: ["CBC", "Fasting Blood Glucose"], completedAt: "08:20 AM", uploaded: true },
+  { id: "LR-2026-041", patient: "Nimali Perera", tests: ["CBC", "Fasting Blood Glucose"], completedAt: "08:20 AM", uploaded: true },
   { id: "LR-2026-040", patient: "Amali Jayasena", tests: ["Lipid Profile"], completedAt: "09:00 AM", uploaded: true },
   { id: "LR-2026-039", patient: "Anura Dissanayake", tests: ["ECG"], completedAt: "09:45 AM", uploaded: false },
 ];
@@ -40,7 +40,7 @@ export default function LabDashboard() {
         {/* Welcome banner */}
         <div
           className="rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden"
-          style={{ background: "linear-gradient(135deg, #0D2137 0%, #006064 60%, #00838F 100%)" }}
+          style={{ background: "linear-gradient(135deg, #0D2137 0%, #0D47A1 60%, #1565C0 100%)" }}
         >
           <div className="absolute right-0 top-0 bottom-0 w-48 opacity-10">
             <svg viewBox="0 0 200 200" fill="white"><circle cx="150" cy="100" r="90" /><circle cx="40" cy="40" r="50" /></svg>
@@ -58,7 +58,7 @@ export default function LabDashboard() {
           </div>
           <div className="relative flex gap-3 flex-shrink-0">
             <a href="/lab/requests"
-              className="px-5 py-2.5 bg-white text-teal-900 rounded-xl text-sm font-semibold hover:bg-teal-50 transition shadow">
+              className="px-5 py-2.5 bg-white text-blue-900 rounded-xl text-sm font-semibold hover:bg-blue-50 transition shadow">
               🧪 View Requests
             </a>
             <a href="/lab/upload"
@@ -72,8 +72,8 @@ export default function LabDashboard() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: "Pending Tests", value: pendingCount, icon: "⏳", color: "#E65100", bg: "#FFF3E0" },
-            { label: "Completed Today", value: COMPLETED_TODAY.length, icon: "✅", color: "#00897B", bg: "#E0F2F1" },
-            { label: "Awaiting Upload", value: COMPLETED_TODAY.filter(r => !r.uploaded).length, icon: "📤", color: "#006064", bg: "#E0F2F1" },
+            { label: "Completed Today", value: COMPLETED_TODAY.length, icon: "✅", color: "#1565C0", bg: "#E3F2FD" },
+            { label: "Awaiting Upload", value: COMPLETED_TODAY.filter(r => !r.uploaded).length, icon: "📤", color: "#0D47A1", bg: "#E3F2FD" },
             { label: "Equipment Active", value: `${EQUIPMENT.filter(e => e.status === "Operational").length}/${EQUIPMENT.length}`, icon: "⚙️", color: "#1565C0", bg: "#E3F2FD" },
           ].map((card) => (
             <div key={card.label} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition">
@@ -98,7 +98,7 @@ export default function LabDashboard() {
                 <h3 className="font-semibold text-gray-800">Active Test Requests</h3>
                 <p className="text-xs text-gray-400 mt-0.5">From today's consultations</p>
               </div>
-              <a href="/lab/requests" className="text-sm font-medium text-teal-600 hover:underline">View All</a>
+              <a href="/lab/requests" className="text-sm font-medium text-blue-600 hover:underline">View All</a>
             </div>
 
             <div className="divide-y divide-gray-50">
@@ -109,7 +109,7 @@ export default function LabDashboard() {
                     <div className="w-1 h-12 rounded-full flex-shrink-0" style={{ background: style.bar }} />
 
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
-                      style={{ background: "#E0F2F1", color: "#006064" }}>
+                      style={{ background: "#E3F2FD", color: "#0D47A1" }}>
                       {req.channeling}
                     </div>
 
@@ -124,7 +124,7 @@ export default function LabDashboard() {
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         {req.tests.map(t => (
-                          <span key={t} className="text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full">{t}</span>
+                          <span key={t} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{t}</span>
                         ))}
                       </div>
                       <div className="text-xs text-gray-400 mt-1">{req.ordered} · {req.id}</div>
@@ -136,13 +136,13 @@ export default function LabDashboard() {
                       </span>
                       {req.status === "Pending" && (
                         <button className="text-xs font-semibold text-white px-3 py-1.5 rounded-lg transition"
-                          style={{ background: "linear-gradient(135deg, #006064, #00838F)" }}>
+                          style={{ background: "linear-gradient(135deg, #0D47A1, #1565C0)" }}>
                           Start
                         </button>
                       )}
                       {req.status === "In Progress" && (
                         <a href="/lab/upload" className="text-xs font-semibold text-white px-3 py-1.5 rounded-lg transition"
-                          style={{ background: "linear-gradient(135deg, #00897B, #1565C0)" }}>
+                          style={{ background: "linear-gradient(135deg, #0D47A1, #1565C0)" }}>
                           Upload
                         </a>
                       )}
@@ -166,9 +166,9 @@ export default function LabDashboard() {
               <h3 className="font-semibold text-gray-800 text-sm mb-4">Quick Actions</h3>
               <div className="space-y-2">
                 {[
-                  { label: "Upload Test Result", href: "/lab/upload", icon: "📤", color: "#006064", bg: "#E0F2F1" },
+                  { label: "Upload Test Result", href: "/lab/upload", icon: "📤", color: "#0D47A1", bg: "#E3F2FD" },
                   { label: "View All Requests", href: "/lab/requests", icon: "🧪", color: "#1565C0", bg: "#E3F2FD" },
-                  { label: "All Lab Reports", href: "/lab/reports", icon: "📋", color: "#00897B", bg: "#E0F2F1" },
+                  { label: "All Lab Reports", href: "/lab/reports", icon: "📋", color: "#1565C0", bg: "#E3F2FD" },
                   { label: "Equipment Status", href: "/lab/equipment", icon: "⚙️", color: "#E65100", bg: "#FFF3E0" },
                 ].map((action) => (
                   <a key={action.label} href={action.href}
@@ -190,7 +190,7 @@ export default function LabDashboard() {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                 <h3 className="font-semibold text-gray-800 text-sm">Equipment Status</h3>
-                <a href="/lab/equipment" className="text-xs text-teal-600 font-medium hover:underline">Manage</a>
+                <a href="/lab/equipment" className="text-xs text-blue-600 font-medium hover:underline">Manage</a>
               </div>
               <div className="divide-y divide-gray-50">
                 {EQUIPMENT.map((eq) => {
@@ -238,13 +238,13 @@ export default function LabDashboard() {
               <h3 className="font-semibold text-gray-800">Completed Today</h3>
               <p className="text-xs text-gray-400 mt-0.5">{COMPLETED_TODAY.length} tests processed</p>
             </div>
-            <a href="/lab/reports" className="text-sm font-medium text-teal-600 hover:underline">All Reports</a>
+            <a href="/lab/reports" className="text-sm font-medium text-blue-600 hover:underline">All Reports</a>
           </div>
           <div className="divide-y divide-gray-50">
             {COMPLETED_TODAY.map((result) => (
               <div key={result.id} className="flex items-center gap-5 px-6 py-3.5 hover:bg-gray-50 transition">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-                  style={{ background: "linear-gradient(135deg, #006064, #00838F)" }}>
+                  style={{ background: "linear-gradient(135deg, #0D47A1, #1565C0)" }}>
                   {result.patient.split(" ").map(n => n[0]).join("").slice(0, 2)}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -265,7 +265,7 @@ export default function LabDashboard() {
                     {result.uploaded ? "✅ Uploaded" : "⏳ Pending"}
                   </span>
                   {!result.uploaded && (
-                    <a href="/lab/upload" className="text-xs font-semibold text-teal-600 hover:underline">Upload →</a>
+                    <a href="/lab/upload" className="text-xs font-semibold text-blue-600 hover:underline">Upload →</a>
                   )}
                 </div>
               </div>

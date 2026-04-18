@@ -5,7 +5,7 @@
 // ══════════════════════════════════════════════════════════════
 export const createStaff = async (req, res) => {
   try {
-    const { name, email, password, telephone, role, slmcRegisterNumber, medicalCenterRegisterNumber, workingExperience } = req.body;
+    const { name, email, password, telephone, role, slmcRegisterNumber, workingExperience } = req.body;
 
     const staffRoles = ['doctor', 'lab', 'pharmacy', 'cashier', 'admin'];
     if (!staffRoles.includes(role))
@@ -20,9 +20,8 @@ export const createStaff = async (req, res) => {
     const userId = await User.generateUserId(role);
 
     const doctorDetails = role === 'doctor' ? {
-      slmcRegisterNumber:            slmcRegisterNumber || '',
-      medicalCenterRegisterNumber:   medicalCenterRegisterNumber || '',
-      workingExperience:             workingExperience || '',
+      slmcRegisterNumber: slmcRegisterNumber || '',
+      workingExperience:  workingExperience  || '',
     } : undefined;
 
     const user = await User.create({
