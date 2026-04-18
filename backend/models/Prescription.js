@@ -17,8 +17,6 @@ const prescriptionSchema = new mongoose.Schema({
 
   patientId:    { type: String, default: null },
   patientName:  { type: String, required: true },
-  channelingNo: { type: String, default: '' },
-
   // ── Link back to the appointment this prescription was issued for ──
   appointmentId: { type: String, default: null },   // e.g. "APT-2026-0001"
 
