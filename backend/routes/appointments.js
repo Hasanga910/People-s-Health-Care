@@ -14,6 +14,7 @@ import {
   getTodayAppointments,
   startAppointment,
   completeAppointment,
+  getHolidayCancellations,
 } from '../controllers/appointmentController.js';
 
 const router = express.Router();
@@ -29,6 +30,12 @@ router.post('/book',        protect, authorize('patient'), bookAppointment);
 router.get('/my',           protect, authorize('patient'), getMyAppointments);
 router.patch('/:id/cancel', protect, authorize('patient'), cancelAppointment);
 router.get('/:id/pdf',      protect, getAppointmentPDF);
+
+// Holiday-triggered toast feed. Declared BEFORE '/:id/pdf' wildcard
+// would matter if that route used a different verb — kept grouped
+// here under Patient for clarity.
+router.get('/holiday-cancellations',
+  protect, authorize('patient'), getHolidayCancellations);
 
 
 // ── Doctor ─────────────────────────────────────────────────────

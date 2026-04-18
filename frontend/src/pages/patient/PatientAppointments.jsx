@@ -2,48 +2,29 @@ import { useState, useEffect } from "react";
 import PatientLayout from "../../components/PatientLayout";
 import api from "../../services/api";
 
-
 const TODAY = new Date().toISOString().split("T")[0];
 
-
-const downloadPDF = async (appointmentId, filename) => {
-  try {
-    const response = await api.get(`/appointments/${appointmentId}/pdf`, {
-      responseType: "blob",
-     
-    });
-
-   
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-
-    
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", filename);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-
-   
-    window.URL.revokeObjectURL(url);
-  } catch (err) {
-    alert("Could not download PDF. Please try again.");
-  }
+// ── Session times (for display) ────────────────────────────
+const SESSION_INFO = {
+  Morning: { start: "7:00 AM",  end: "7:45 AM",  icon: "🌅" },
+  Evening: { start: "4:30 PM",  end: "8:00 PM",  icon: "🌆" },
 };
 
-
+// ── Status style config ────────────────────────────────────
 const STATUS_CONFIG = {
-  Pending:   { bg: "bg-blue-100",  text: "text-blue-700",  border: "border-blue-200",  bar: "#60a5fa" },
-  Completed: { bg: "bg-gray-100",  text: "text-gray-600",  border: "border-gray-200",  bar: "#9ca3af" },
-  Cancelled: { bg: "bg-red-100",   text: "text-red-600",   border: "border-red-200",   bar: "#f87171" },
+  Pending:     { bg: "bg-blue-100",   text: "text-blue-700",   border: "border-blue-200",   bar: "#60a5fa" },
+  "In Progress":{ bg: "bg-amber-100", text: "text-amber-700",  border: "border-amber-200",  bar: "#fbbf24" },
+  Completed:   { bg: "bg-gray-100",   text: "text-gray-600",   border: "border-gray-200",   bar: "#9ca3af" },
+  Cancelled:   { bg: "bg-red-100",    text: "text-red-600",    border: "border-red-200",    bar: "#f87171" },
 };
 
-
+// ── Check if date is Sunday ────────────────────────────────
 function isSunday(dateStr) {
   if (!dateStr) return false;
   return new Date(dateStr + "T00:00:00").getDay() === 0;
 }
 
+// ── Format YYYY-MM-DD to readable ─────────────────────────
 function formatDate(dateStr) {
   if (!dateStr) return "";
   return new Date(dateStr + "T00:00:00").toLocaleDateString("en-GB", {
@@ -51,29 +32,56 @@ function formatDate(dateStr) {
   });
 }
 
+// ── Check if a session is still bookable today ─────────────
+// Morning ends 07:45, Evening ends 20:00
+function isSessionOpenToday(session) {
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  if (session === "Morning") return currentMinutes < (7 * 60 + 45);   // before 07:45
+  if (session === "Evening") return currentMinutes < (20 * 60);       // before 20:00
+  return false;
+}
+
+// ── Download PDF with auth token ──────────────────────────
+const downloadPDF = async (appointmentId, filename) => {
+  try {
+    const response = await api.get(`/appointments/${appointmentId}/pdf`, {
+      responseType: "blob",
+    });
+    const url  = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement("a");
+    link.href  = url;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch {
+    alert("Could not download PDF. Please try again.");
+  }
+};
+
+// ══════════════════════════════════════════════════════════
+// BOOKING MODAL
+// ══════════════════════════════════════════════════════════
 function BookingModal({ onClose, onBooked, holidays }) {
-  const [step, setStep]             = useState(1);
+  const [step, setStep]               = useState(1);
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedSession, setSelectedSession] = useState("");
-  const [sessionInfo, setSessionInfo]   = useState(null);
-  
-  const [loadingInfo, setLoadingInfo]   = useState(false);
-  const [infoError, setInfoError]       = useState("");
-  const [booking, setBooking]           = useState(false);
+  const [sessionInfo, setSessionInfo] = useState(null);
+  const [loadingInfo, setLoadingInfo] = useState(false);
+  const [infoError, setInfoError]     = useState("");
+  const [booking, setBooking]         = useState(false);
   const [bookingError, setBookingError] = useState("");
 
- 
   const user = (() => {
-    try { return JSON.parse(localStorage.getItem("user")); }
+    try { return JSON.parse(sessionStorage.getItem("user")); }
     catch { return null; }
   })();
 
-  // ── Fetch session info when date and session selected ─
+  // ── Fetch session info when date+session selected ──────
   useEffect(() => {
-    if (!selectedDate || !selectedSession) {
-      setSessionInfo(null);
-      return;
-    }
+    if (!selectedDate || !selectedSession) { setSessionInfo(null); return; }
     const fetch = async () => {
       setLoadingInfo(true);
       setInfoError("");
@@ -83,13 +91,9 @@ function BookingModal({ onClose, onBooked, holidays }) {
         });
         setSessionInfo(res.data.data);
       } catch (err) {
-        setInfoError(
-          err.response?.data?.message || "Could not load session info"
-        );
+        setInfoError(err.response?.data?.message || "Could not load session info");
         setSessionInfo(null);
-      } finally {
-        setLoadingInfo(false);
-      }
+      } finally { setLoadingInfo(false); }
     };
     fetch();
   }, [selectedDate, selectedSession]);
@@ -99,11 +103,33 @@ function BookingModal({ onClose, onBooked, holidays }) {
     if (!selectedDate) return "";
     if (selectedDate < TODAY) return "Cannot book past dates.";
     if (isSunday(selectedDate)) return "Medical center is closed on Sundays.";
-    if (holidays.includes(selectedDate)) return "This date is a holiday. Doctor unavailable.";
+    // Check if entire day is blocked
+    const fullDayBlocked = holidays.some(
+      (h) => h.date === selectedDate && h.session === "Both"
+    );
+    if (fullDayBlocked) return "This date is fully unavailable. Doctor not available.";
     return "";
   })();
 
-  const dateValid = selectedDate && !dateError;
+  // ── Session validation (includes today's time check) ──
+  const getSessionError = (session) => {
+    if (!selectedDate || !session) return "";
+    // Check if this specific session is blocked
+    const sessionBlocked = holidays.some(
+      (h) => h.date === selectedDate && (h.session === session || h.session === "Both")
+    );
+    if (sessionBlocked) return `The ${session} session is unavailable on this date.`;
+    // If booking for today, check time
+    if (selectedDate === TODAY && !isSessionOpenToday(session)) {
+      const endTime = session === "Morning" ? "7:45 AM" : "8:00 PM";
+      return `The ${session} session has already ended for today (ended at ${endTime}).`;
+    }
+    return "";
+  };
+
+  const morningError = getSessionError("Morning");
+  const eveningError = getSessionError("Evening");
+  const dateValid    = selectedDate && !dateError;
 
   // ── Confirm booking ────────────────────────────────────
   const handleBook = async () => {
@@ -111,21 +137,14 @@ function BookingModal({ onClose, onBooked, holidays }) {
     setBookingError("");
     try {
       const res = await api.post("/appointments/book", {
-        date:    selectedDate,
-        session: selectedSession,
+        date: selectedDate, session: selectedSession,
       });
       onBooked(res.data.appointment);
-      // Pass booked appointment back to parent
     } catch (err) {
-      setBookingError(
-        err.response?.data?.message || "Booking failed. Please try again."
-      );
-    } finally {
-      setBooking(false);
-    }
+      setBookingError(err.response?.data?.message || "Booking failed. Please try again.");
+    } finally { setBooking(false); }
   };
 
-  // ── Step indicator ─────────────────────────────────────
   const STEPS = ["Select Date", "Select Session", "Confirm"];
 
   return (
@@ -161,8 +180,8 @@ function BookingModal({ onClose, onBooked, holidays }) {
           {/* Step indicators */}
           <div className="flex items-center gap-2">
             {STEPS.map((label, i) => {
-              const idx  = i + 1;
-              const done = step > idx;
+              const idx = i + 1;
+              const done   = step > idx;
               const active = step === idx;
               return (
                 <div key={label} className="flex items-center gap-2 flex-1">
@@ -170,8 +189,7 @@ function BookingModal({ onClose, onBooked, holidays }) {
                                    text-xs font-bold flex-shrink-0 transition ${
                     done   ? "bg-green-500 text-white" :
                     active ? "text-white" : "bg-gray-100 text-gray-400"
-                  }`}
-                    style={active
+                  }`} style={active
                       ? { background: "linear-gradient(135deg, #1565C0, #00ACC1)" }
                       : {}}>
                     {done ? "✓" : idx}
@@ -194,9 +212,7 @@ function BookingModal({ onClose, onBooked, holidays }) {
                   Select Date
                 </label>
                 <input
-                  type="date"
-                  value={selectedDate}
-                  min={TODAY}
+                  type="date" value={selectedDate} min={TODAY}
                   onChange={(e) => {
                     setSelectedDate(e.target.value);
                     setSelectedSession("");
@@ -206,11 +222,9 @@ function BookingModal({ onClose, onBooked, holidays }) {
                              text-sm focus:outline-none focus:ring-2
                              focus:ring-blue-500 transition"
                 />
-                {/* Show error if Sunday or holiday */}
                 {dateError && (
                   <p className="text-xs text-red-500 mt-2">⚠️ {dateError}</p>
                 )}
-                {/* Show day name if valid date selected */}
                 {dateValid && (
                   <p className="text-xs text-green-600 mt-2">
                     ✓ {formatDate(selectedDate)}
@@ -218,17 +232,19 @@ function BookingModal({ onClose, onBooked, holidays }) {
                 )}
               </div>
 
-              {/* Session time info */}
+              {/* Session times info */}
               <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
-                <p className="text-xs font-semibold text-blue-800 mb-1">
+                <p className="text-xs font-semibold text-blue-800 mb-2">
                   Session Times
                 </p>
-                <p className="text-xs text-blue-600">
-                  🌅 Morning Session — starts at <strong>7:00 AM </strong> to 8:00 AM
-                </p>
-                <p className="text-xs text-blue-600 mt-1">
-                  🌆 Evening Session — starts at <strong>5:00 PM </strong> to 8:00 PM
-                </p>
+                <div className="space-y-1">
+                  <p className="text-xs text-blue-600">
+                    🌅 Morning Session — <strong>7:00 AM to 7:45 AM</strong>
+                  </p>
+                  <p className="text-xs text-blue-600">
+                    🌆 Evening Session — <strong>4:30 PM to 8:00 PM</strong>
+                  </p>
+                </div>
               </div>
 
               <button
@@ -246,7 +262,6 @@ function BookingModal({ onClose, onBooked, holidays }) {
           {step === 2 && (
             <div className="space-y-4">
 
-              {/* Selected date reminder */}
               <div className="p-3 bg-gray-50 rounded-xl text-xs text-gray-500 font-medium">
                 📅 {formatDate(selectedDate)}
               </div>
@@ -257,56 +272,72 @@ function BookingModal({ onClose, onBooked, holidays }) {
               </label>
 
               {/* Morning session card */}
-              <button
-                onClick={() => setSelectedSession("Morning")}
-                className={`w-full p-4 rounded-xl border-2 text-left transition ${
-                  selectedSession === "Morning"
-                    ? "border-blue-500 bg-blue-50"
-                    : "border-gray-200 hover:border-blue-300 hover:bg-blue-50"
-                }`}>
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">🌅</span>
-                  <div>
-                    <div className="font-semibold text-gray-800 text-sm">
-                      Morning Session
+              <div>
+                <button
+                  onClick={() => !morningError && setSelectedSession("Morning")}
+                  disabled={!!morningError}
+                  className={`w-full p-4 rounded-xl border-2 text-left transition ${
+                    morningError
+                      ? "border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed"
+                      : selectedSession === "Morning"
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 hover:border-blue-300 hover:bg-blue-50"
+                  }`}>
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🌅</span>
+                    <div className="flex-1">
+                      <div className="font-semibold text-gray-800 text-sm">
+                        Morning Session
+                      </div>
+                      <div className="text-xs text-gray-400">7:00 AM — 7:45 AM</div>
+                      {morningError && (
+                        <div className="text-xs text-red-500 mt-1">{morningError}</div>
+                      )}
                     </div>
-                    <div className="text-xs text-gray-400">Starts at 7:00 AM</div>
+                    {selectedSession === "Morning" && !morningError && (
+                      <div className="w-5 h-5 rounded-full bg-blue-500
+                                      flex items-center justify-center text-white text-xs">
+                        ✓
+                      </div>
+                    )}
                   </div>
-                  {selectedSession === "Morning" && (
-                    <div className="ml-auto w-5 h-5 rounded-full bg-blue-500
-                                    flex items-center justify-center text-white text-xs">
-                      ✓
-                    </div>
-                  )}
-                </div>
-              </button>
+                </button>
+              </div>
 
               {/* Evening session card */}
-              <button
-                onClick={() => setSelectedSession("Evening")}
-                className={`w-full p-4 rounded-xl border-2 text-left transition ${
-                  selectedSession === "Evening"
-                    ? "border-blue-500 bg-blue-50"
-                    : "border-gray-200 hover:border-blue-300 hover:bg-blue-50"
-                }`}>
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">🌆</span>
-                  <div>
-                    <div className="font-semibold text-gray-800 text-sm">
-                      Evening Session
+              <div>
+                <button
+                  onClick={() => !eveningError && setSelectedSession("Evening")}
+                  disabled={!!eveningError}
+                  className={`w-full p-4 rounded-xl border-2 text-left transition ${
+                    eveningError
+                      ? "border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed"
+                      : selectedSession === "Evening"
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 hover:border-blue-300 hover:bg-blue-50"
+                  }`}>
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🌆</span>
+                    <div className="flex-1">
+                      <div className="font-semibold text-gray-800 text-sm">
+                        Evening Session
+                      </div>
+                      <div className="text-xs text-gray-400">4:30 PM — 8:00 PM</div>
+                      {eveningError && (
+                        <div className="text-xs text-red-500 mt-1">{eveningError}</div>
+                      )}
                     </div>
-                    <div className="text-xs text-gray-400">Starts at 5:00 PM</div>
+                    {selectedSession === "Evening" && !eveningError && (
+                      <div className="w-5 h-5 rounded-full bg-blue-500
+                                      flex items-center justify-center text-white text-xs">
+                        ✓
+                      </div>
+                    )}
                   </div>
-                  {selectedSession === "Evening" && (
-                    <div className="ml-auto w-5 h-5 rounded-full bg-blue-500
-                                    flex items-center justify-center text-white text-xs">
-                      ✓
-                    </div>
-                  )}
-                </div>
-              </button>
+                </button>
+              </div>
 
-              {/* Session info box — shows after session selected */}
+              {/* Session info box */}
               {selectedSession && (
                 <div className="p-4 rounded-xl border border-gray-100 bg-gray-50">
                   {loadingInfo && (
@@ -334,10 +365,6 @@ function BookingModal({ onClose, onBooked, holidays }) {
                 </div>
               )}
 
-              {infoError && (
-                <p className="text-xs text-red-500 text-center">{infoError}</p>
-              )}
-
               <div className="flex gap-3">
                 <button onClick={() => setStep(1)}
                   className="flex-1 py-3 rounded-xl border border-gray-200
@@ -360,22 +387,19 @@ function BookingModal({ onClose, onBooked, holidays }) {
           {step === 3 && (
             <div className="space-y-4">
 
-              {/* Summary card */}
               <div className="p-5 rounded-2xl border border-blue-100 bg-blue-50 space-y-3">
-                <p className="text-sm font-semibold text-blue-800">
-                  Booking Summary
-                </p>
+                <p className="text-sm font-semibold text-blue-800">Booking Summary</p>
                 {[
-                  { label: "Patient",   val: user?.name },
-                  { label: "Patient ID", val: user?.userId },
-                  { label: "Date",      val: formatDate(selectedDate) },
-                  { label: "Session",   val: selectedSession },
-                  { label: "Est. Time", val: sessionInfo?.estimatedTime },
+                  { label: "Patient",    val: user?.name    },
+                  { label: "Patient ID", val: user?.userId  },
+                  { label: "Date",       val: formatDate(selectedDate) },
+                  { label: "Session",    val: selectedSession },
+                  { label: "Est. Time",  val: sessionInfo?.estimatedTime },
                   { label: "Queue",
                     val: sessionInfo
                       ? `${sessionInfo.activeCount} patients ahead`
                       : null },
-                ].filter(r => r.val).map((row) => (
+                ].filter((r) => r.val).map((row) => (
                   <div key={row.label}
                     className="flex justify-between text-xs border-b
                                border-blue-100 pb-2 last:border-0 last:pb-0">
@@ -386,9 +410,7 @@ function BookingModal({ onClose, onBooked, holidays }) {
               </div>
 
               {bookingError && (
-                <p className="text-xs text-red-500 text-center">
-                  ⚠️ {bookingError}
-                </p>
+                <p className="text-xs text-red-500 text-center">⚠️ {bookingError}</p>
               )}
 
               <div className="flex gap-3">
@@ -416,19 +438,14 @@ function BookingModal({ onClose, onBooked, holidays }) {
 }
 
 // ══════════════════════════════════════════════════════════
-// SUCCESS MODAL — shown after successful booking
+// SUCCESS MODAL
 // ══════════════════════════════════════════════════════════
 function BookingSuccessModal({ appointment, onClose }) {
- const handleDownloadPDF = () => {
-  downloadPDF(appointment._id, `appointment-${appointment.appointmentId}.pdf`);
-};
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center
                     bg-black/50 backdrop-blur-sm p-4">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 text-center">
 
-        {/* Success icon */}
         <div className="w-16 h-16 rounded-full bg-green-100 flex items-center
                         justify-center text-3xl mx-auto mb-4">
           ✓
@@ -442,35 +459,34 @@ function BookingSuccessModal({ appointment, onClose }) {
           Your appointment has been confirmed successfully.
         </p>
 
-        {/* Appointment details */}
         <div className="bg-gray-50 rounded-2xl p-4 text-left space-y-2 mb-6">
           {[
-            { label: "Appointment ID",  val: appointment.appointmentId },
-            { label: "Channeling No.",  val: appointment.channelingNo },
-            { label: "Date",            val: appointment.date },
-            { label: "Session",         val: appointment.session },
-            { label: "Estimated Time",  val: appointment.estimatedTime },
+            { label: "Appointment ID", val: appointment.appointmentId },
+            { label: "Date",           val: appointment.date          },
+            { label: "Session",        val: appointment.session       },
+            { label: "Estimated Time", val: appointment.estimatedTime },
           ].map((row) => (
             <div key={row.label}
-              className="flex justify-between text-xs border-b
-                         border-gray-100 pb-2 last:border-0">
+              className="flex justify-between text-xs border-b border-gray-100
+                         pb-2 last:border-0">
               <span className="text-gray-400">{row.label}</span>
               <span className="font-semibold text-gray-800">{row.val}</span>
             </div>
           ))}
         </div>
 
-        {/* Action buttons */}
         <div className="flex gap-3">
           <button
-            onClick={handleDownloadPDF}
+            onClick={() => downloadPDF(
+              appointment._id,
+              `appointment-${appointment.appointmentId}.pdf`
+            )}
             className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold
                        flex items-center justify-center gap-2 transition"
             style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}>
             📄 Download PDF
           </button>
-          <button
-            onClick={onClose}
+          <button onClick={onClose}
             className="flex-1 py-2.5 rounded-xl border border-gray-200
                        text-gray-600 text-sm font-medium hover:bg-gray-50 transition">
             Close
@@ -482,7 +498,7 @@ function BookingSuccessModal({ appointment, onClose }) {
 }
 
 // ══════════════════════════════════════════════════════════
-// MAIN PAGE COMPONENT
+// MAIN PAGE
 // ══════════════════════════════════════════════════════════
 export default function PatientAppointments() {
   const [appointments, setAppointments] = useState([]);
@@ -491,11 +507,9 @@ export default function PatientAppointments() {
   const [filter, setFilter]             = useState("All");
   const [showBooking, setShowBooking]   = useState(false);
   const [bookedAppt, setBookedAppt]     = useState(null);
-  // bookedAppt holds the just-booked appointment to show success modal
   const [cancelId, setCancelId]         = useState(null);
   const [cancelling, setCancelling]     = useState(false);
 
-  // ── Fetch appointments and holidays on load ────────────
   useEffect(() => {
     fetchAppointments();
     fetchHolidays();
@@ -515,27 +529,24 @@ export default function PatientAppointments() {
   const fetchHolidays = async () => {
     try {
       const res = await api.get("/appointments/holidays");
-      // Extract just the date strings into a simple array
-      setHolidays((res.data.holidays || []).map((h) => h.date));
+      setHolidays(res.data.holidays || []);
+      // Keep full holiday objects so we can check session-specific blocking
     } catch (err) {
       console.error("Failed to fetch holidays", err);
     }
   };
 
-  // ── Called when booking succeeds ──────────────────────
   const handleBooked = (appointment) => {
     setShowBooking(false);
     setBookedAppt(appointment);
-    // Refresh appointment list to show the new booking
     fetchAppointments();
   };
 
-  // ── Cancel appointment ─────────────────────────────────
   const handleCancel = async (id) => {
     setCancelling(true);
     try {
       await api.patch(`/appointments/${id}/cancel`);
-      // Refresh list after cancel
+      // Refresh list — active count decreases automatically on backend
       fetchAppointments();
       setCancelId(null);
     } catch (err) {
@@ -545,17 +556,14 @@ export default function PatientAppointments() {
     }
   };
 
-  // ── Filter appointments ────────────────────────────────
   const filtered = filter === "All"
     ? appointments
     : appointments.filter((a) => a.status === filter);
 
-  // ── Stats ──────────────────────────────────────────────
   const upcoming  = appointments.filter((a) => a.status === "Pending").length;
   const completed = appointments.filter((a) => a.status === "Completed").length;
   const total     = appointments.length;
 
-  // ── Loading state ──────────────────────────────────────
   if (loading) {
     return (
       <PatientLayout activePage="My Appointments">
@@ -570,7 +578,6 @@ export default function PatientAppointments() {
     <PatientLayout activePage="My Appointments">
       <div className="p-6 space-y-5">
 
-        {/* ── Modals ── */}
         {showBooking && (
           <BookingModal
             onClose={() => setShowBooking(false)}
@@ -585,7 +592,7 @@ export default function PatientAppointments() {
           />
         )}
 
-        {/* ── Page header ── */}
+        {/* Page header */}
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-xl font-bold text-gray-800"
@@ -599,8 +606,7 @@ export default function PatientAppointments() {
           <button
             onClick={() => setShowBooking(true)}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white
-                       text-sm font-semibold shadow-lg transition-transform
-                       hover:scale-105"
+                       text-sm font-semibold shadow-lg transition-transform hover:scale-105"
             style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}>
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
               <path fillRule="evenodd"
@@ -611,12 +617,12 @@ export default function PatientAppointments() {
           </button>
         </div>
 
-        {/* ── Stats ── */}
+        {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: "Upcoming",    value: upcoming,  color: "#1565C0", bg: "#E3F2FD" },
-            { label: "Completed",   value: completed, color: "#00897B", bg: "#E0F2F1" },
-            { label: "Total Visits",value: total,     color: "#7B1FA2", bg: "#F3E5F5" },
+            { label: "Upcoming",     value: upcoming,  color: "#1565C0", bg: "#E3F2FD" },
+            { label: "Completed",    value: completed, color: "#00897B", bg: "#E0F2F1" },
+            { label: "Total Visits", value: total,     color: "#7B1FA2", bg: "#F3E5F5" },
           ].map((s) => (
             <div key={s.label}
               className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
@@ -629,7 +635,7 @@ export default function PatientAppointments() {
           ))}
         </div>
 
-        {/* ── Info banner ── */}
+        {/* Info banner */}
         <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4
                         flex items-start gap-3">
           <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center
@@ -640,16 +646,16 @@ export default function PatientAppointments() {
             </p>
             <p className="text-xs text-blue-600 mt-0.5">
               Available <strong>Monday to Saturday</strong>.
-              Morning session starts <strong>7:00 AM</strong>.
-              Evening session starts <strong>5:00 PM</strong>.
+              🌅 Morning: <strong>7:00 AM – 7:45 AM</strong> ·
+              🌆 Evening: <strong>4:30 PM – 8:00 PM</strong>
             </p>
           </div>
         </div>
 
-        {/* ── Filter tabs ── */}
+        {/* Filter tabs */}
         <div className="bg-white rounded-2xl p-4 border border-gray-100
                         shadow-sm flex flex-wrap gap-2">
-          {["All", "Pending", "Completed", "Cancelled"].map((f) => (
+          {["All", "Pending", "In Progress", "Completed", "Cancelled"].map((f) => (
             <button key={f} onClick={() => setFilter(f)}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
                 filter === f
@@ -664,14 +670,11 @@ export default function PatientAppointments() {
           ))}
         </div>
 
-        {/* ── Appointment list ── */}
+        {/* Appointment list */}
         <div className="space-y-3">
           {filtered.map((appt) => {
-            const style = STATUS_CONFIG[appt.status] || STATUS_CONFIG.Pending;
-            const dateParts = appt.date
-              ? appt.date.split("-")
-              : ["", "", ""];
-            // dateParts from "2026-03-10" → ["2026","03","10"]
+            const style    = STATUS_CONFIG[appt.status] || STATUS_CONFIG.Pending;
+            const dateParts = appt.date ? appt.date.split("-") : ["", "", ""];
 
             return (
               <div key={appt._id}
@@ -687,12 +690,8 @@ export default function PatientAppointments() {
                         ? { background: "#e5e7eb", color: "#6b7280" }
                         : { background: "linear-gradient(135deg, #1565C0, #00ACC1)" }
                     }>
-                    <span className="text-xs font-bold opacity-80">
-                      {dateParts[1]}
-                    </span>
-                    <span className="text-xl font-bold leading-none">
-                      {dateParts[2]}
-                    </span>
+                    <span className="text-xs font-bold opacity-80">{dateParts[1]}</span>
+                    <span className="text-xl font-bold leading-none">{dateParts[2]}</span>
                   </div>
 
                   {/* Status bar */}
@@ -705,16 +704,13 @@ export default function PatientAppointments() {
                       <span className="text-sm font-semibold text-gray-800">
                         {appt.session} Session
                       </span>
-                      <span className="font-mono text-xs bg-gray-100 text-gray-500
-                                       px-2 py-0.5 rounded-full">
-                        {appt.channelingNo}
+                      <span className="text-xs bg-gray-100 text-gray-500
+                                       px-2 py-0.5 rounded-full font-mono">
+                        {appt.appointmentId}
                       </span>
                     </div>
                     <div className="text-xs text-gray-400">
                       {appt.date} · Est. {appt.estimatedTime}
-                    </div>
-                    <div className="text-xs text-gray-400 mt-0.5">
-                      ID: {appt.appointmentId}
                     </div>
                   </div>
 
@@ -725,30 +721,27 @@ export default function PatientAppointments() {
                       {appt.status}
                     </span>
 
-                    {/* Cancel button — only for Pending */}
                     {appt.status === "Pending" && (
-                      <button
-                        onClick={() => setCancelId(appt._id)}
+                      <button onClick={() => setCancelId(appt._id)}
                         className="text-xs text-red-500 hover:text-red-700
                                    font-medium transition">
                         Cancel
                       </button>
                     )}
 
-                    {/* PDF download — always available */}
                     <button
-  onClick={() => downloadPDF(
-    appt._id,
-    `appointment-${appt.appointmentId}.pdf`
-  )}
-  className="text-xs text-blue-600 hover:text-blue-800
-             font-medium transition">
-  📄 PDF
-</button>
+                      onClick={() => downloadPDF(
+                        appt._id,
+                        `appointment-${appt.appointmentId}.pdf`
+                      )}
+                      className="text-xs text-blue-600 hover:text-blue-800
+                                 font-medium transition">
+                      📄 PDF
+                    </button>
                   </div>
                 </div>
 
-                {/* Cancel confirmation inline */}
+                {/* Cancel confirmation */}
                 {cancelId === appt._id && (
                   <div className="border-t border-red-100 bg-red-50 px-5 py-3
                                   flex items-center justify-between">
@@ -756,19 +749,16 @@ export default function PatientAppointments() {
                       Cancel this appointment?
                     </p>
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => setCancelId(null)}
-                        className="text-xs px-3 py-1.5 rounded-lg border
-                                   border-gray-300 text-gray-600
-                                   hover:bg-gray-100 transition">
+                      <button onClick={() => setCancelId(null)}
+                        className="text-xs px-3 py-1.5 rounded-lg border border-gray-300
+                                   text-gray-600 hover:bg-gray-100 transition">
                         Keep it
                       </button>
                       <button
                         disabled={cancelling}
                         onClick={() => handleCancel(appt._id)}
-                        className="text-xs px-3 py-1.5 rounded-lg bg-red-500
-                                   text-white font-semibold hover:bg-red-600
-                                   disabled:opacity-60 transition">
+                        className="text-xs px-3 py-1.5 rounded-lg bg-red-500 text-white
+                                   font-semibold hover:bg-red-600 disabled:opacity-60 transition">
                         {cancelling ? "Cancelling..." : "Yes, Cancel"}
                       </button>
                     </div>
@@ -778,18 +768,13 @@ export default function PatientAppointments() {
             );
           })}
 
-          {/* Empty state */}
           {filtered.length === 0 && (
             <div className="bg-white rounded-2xl border border-gray-100
                             p-12 text-center">
               <div className="text-4xl mb-3">📅</div>
-              <div className="text-gray-500 font-medium">
-                No appointments found
-              </div>
-              <button
-                onClick={() => setShowBooking(true)}
-                className="mt-4 px-5 py-2.5 rounded-xl text-sm font-semibold
-                           text-white"
+              <div className="text-gray-500 font-medium">No appointments found</div>
+              <button onClick={() => setShowBooking(true)}
+                className="mt-4 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
                 style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}>
                 Book Now
               </button>
