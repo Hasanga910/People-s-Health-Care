@@ -6,6 +6,7 @@ import Login    from "./pages/Login";
 import Register from "./pages/Register";
 
 // Doctor
+import DoctorLayout            from "./components/DoctorLayout";
 import DoctorDashboard        from "./pages/doctor/DoctorDashboard";
 import DoctorAppointments     from "./pages/doctor/DoctorAppointments";
 import DoctorPrescriptions    from "./pages/doctor/DoctorPrescriptions";
@@ -32,24 +33,28 @@ import LabUploadResults from "./pages/lab/LabUploadResults";
 import LabReports       from "./pages/lab/LabReports";
 import LabEquipment     from "./pages/lab/LabEquipment";
 
+// Lab (new)
+import LabPayments from "./pages/lab/LabPayments";
+
 // Pharmacy (billing removed — moved to cashier)
 import PharmacyDashboard from "./pages/pharmacy/PharmacyDashboard";
 import PharmacyQueue     from "./pages/pharmacy/PharmacyQueue";
 import PharmacyInventory from "./pages/pharmacy/PharmacyInventory";
 
 // Cashier
-import CashierDashboard from "./pages/cashier/CashierDashboard";
-import CashierBilling   from "./pages/cashier/CashierBilling";
-import CashierFeedback  from "./pages/cashier/CashierFeedback";
+import CashierDashboard       from "./pages/cashier/CashierDashboard";
+import CashierBilling         from "./pages/cashier/Cashierbilling";
+import CashierBillingTurnover from "./pages/cashier/CashierBillingTurnover";
 
 // Admin
-import AdminDashboard    from "./pages/admin/AdminDashboard";
-import AdminStaff        from "./pages/admin/AdminStaff";
-import AdminAppointments from "./pages/admin/AdminAppointments";
-import AdminPatients     from "./pages/admin/AdminPatients";
-import AdminFinance      from "./pages/admin/AdminFinance";
-import AdminSettings     from "./pages/admin/AdminSettings";
-import AdminFeedback     from "./pages/admin/AdminFeedback";
+import AdminDashboard       from "./pages/admin/AdminDashboard";
+import AdminStaff           from "./pages/admin/AdminStaff";
+import AdminAppointments    from "./pages/admin/AdminAppointments";
+import AdminPatients        from "./pages/admin/AdminPatients";
+import AdminFinance         from "./pages/admin/AdminFinance";
+import AdminSettings        from "./pages/admin/AdminSettings";
+import AdminFeedback        from "./pages/admin/AdminFeedback";
+import AdminTurnoverReports from "./pages/admin/AdminTurnoverReports";
 
 // ══════════════════════════════════════════════════════════════
 // Auth helpers
@@ -57,7 +62,7 @@ import AdminFeedback     from "./pages/admin/AdminFeedback";
 
 function getUser() {
   try {
-    const str = localStorage.getItem("user");
+    const str = sessionStorage.getItem("user");
     return str ? JSON.parse(str) : null;
   } catch {
     return null;
@@ -65,19 +70,19 @@ function getUser() {
 }
 
 function isLoggedIn() {
-  const token = localStorage.getItem("token");
-  const user  = localStorage.getItem("user");
+  const token = sessionStorage.getItem("token");
+  const user  = sessionStorage.getItem("user");
   if (!token || !user) return false;
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));
     if (payload.exp && payload.exp * 1000 < Date.now()) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+      sessionStorage.removeItem("token");
+      sessionStorage.removeItem("user");
       return false;
     }
   } catch {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("user");
     return false;
   }
   return true;
@@ -119,17 +124,19 @@ export default function App() {
         <Route path="/login"    element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
         <Route path="/register" element={<PublicOnlyRoute><Register /></PublicOnlyRoute>} />
 
-        {/* ── Doctor ── */}
-        <Route path="/doctor"                  element={<ProtectedRoute allowedRoles={["doctor"]}><DoctorDashboard /></ProtectedRoute>} />
-        <Route path="/doctor/dashboard"        element={<ProtectedRoute allowedRoles={["doctor"]}><DoctorDashboard /></ProtectedRoute>} />
-        <Route path="/doctor/appointments"     element={<ProtectedRoute allowedRoles={["doctor"]}><DoctorAppointments /></ProtectedRoute>} />
-        <Route path="/doctor/prescriptions"    element={<ProtectedRoute allowedRoles={["doctor"]}><DoctorPrescriptions /></ProtectedRoute>} />
-        <Route path="/doctor/lab-requests"     element={<ProtectedRoute allowedRoles={["doctor"]}><DoctorLabRequests /></ProtectedRoute>} />
-        <Route path="/doctor/lab-results"      element={<ProtectedRoute allowedRoles={["doctor"]}><DoctorLabResults /></ProtectedRoute>} />
-        <Route path="/doctor/patients"         element={<ProtectedRoute allowedRoles={["doctor"]}><DoctorPatients /></ProtectedRoute>} />
-        <Route path="/doctor/analysis"         element={<ProtectedRoute allowedRoles={["doctor"]}><DoctorAnalysis /></ProtectedRoute>} />
-        <Route path="/doctor/medicine-analysis"element={<ProtectedRoute allowedRoles={["doctor"]}><DoctorMedicineAnalysis /></ProtectedRoute>} />
-        <Route path="/doctor/settings"         element={<ProtectedRoute allowedRoles={["doctor"]}><DoctorSettings /></ProtectedRoute>} />
+        {/* ── Doctor (shared layout — persists across navigation) ── */}
+        <Route element={<ProtectedRoute allowedRoles={["doctor"]}><DoctorLayout /></ProtectedRoute>}>
+          <Route path="/doctor"                   element={<DoctorDashboard />} />
+          <Route path="/doctor/dashboard"         element={<DoctorDashboard />} />
+          <Route path="/doctor/appointments"      element={<DoctorAppointments />} />
+          <Route path="/doctor/prescriptions"     element={<DoctorPrescriptions />} />
+          <Route path="/doctor/lab-requests"      element={<DoctorLabRequests />} />
+          <Route path="/doctor/lab-results"       element={<DoctorLabResults />} />
+          <Route path="/doctor/patients"          element={<DoctorPatients />} />
+          <Route path="/doctor/analysis"          element={<DoctorAnalysis />} />
+          <Route path="/doctor/medicine-analysis" element={<DoctorMedicineAnalysis />} />
+          <Route path="/doctor/settings"          element={<DoctorSettings />} />
+        </Route>
 
         {/* ── Patient ── */}
         <Route path="/patient"              element={<ProtectedRoute allowedRoles={["patient"]}><PatientDashboard /></ProtectedRoute>} />
@@ -148,6 +155,7 @@ export default function App() {
         <Route path="/lab/upload"     element={<ProtectedRoute allowedRoles={["lab"]}><LabUploadResults /></ProtectedRoute>} />
         <Route path="/lab/reports"    element={<ProtectedRoute allowedRoles={["lab"]}><LabReports /></ProtectedRoute>} />
         <Route path="/lab/equipment"  element={<ProtectedRoute allowedRoles={["lab"]}><LabEquipment /></ProtectedRoute>} />
+        <Route path="/lab/payments"   element={<ProtectedRoute allowedRoles={["lab"]}><LabPayments /></ProtectedRoute>} />
 
         {/* ── Pharmacy (billing removed) ── */}
         <Route path="/pharmacy"           element={<ProtectedRoute allowedRoles={["pharmacy"]}><PharmacyDashboard /></ProtectedRoute>} />
@@ -159,7 +167,7 @@ export default function App() {
         <Route path="/cashier"            element={<ProtectedRoute allowedRoles={["cashier"]}><CashierDashboard /></ProtectedRoute>} />
         <Route path="/cashier/dashboard"  element={<ProtectedRoute allowedRoles={["cashier"]}><CashierDashboard /></ProtectedRoute>} />
         <Route path="/cashier/billing"    element={<ProtectedRoute allowedRoles={["cashier"]}><CashierBilling /></ProtectedRoute>} />
-        <Route path="/cashier/feedback"   element={<ProtectedRoute allowedRoles={["cashier"]}><CashierFeedback /></ProtectedRoute>} />
+        <Route path="/cashier/billing-turnover"  element={<ProtectedRoute allowedRoles={["cashier"]}><CashierBillingTurnover /></ProtectedRoute>} />
 
         {/* ── Admin ── */}
         <Route path="/admin"              element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
@@ -169,7 +177,8 @@ export default function App() {
         <Route path="/admin/patients"     element={<ProtectedRoute allowedRoles={["admin"]}><AdminPatients /></ProtectedRoute>} />
         <Route path="/admin/finance"      element={<ProtectedRoute allowedRoles={["admin"]}><AdminFinance /></ProtectedRoute>} />
         <Route path="/admin/settings"     element={<ProtectedRoute allowedRoles={["admin"]}><AdminSettings /></ProtectedRoute>} />
-        <Route path="/admin/feedback"     element={<ProtectedRoute allowedRoles={["admin"]}><AdminFeedback /></ProtectedRoute>} />
+        <Route path="/admin/feedback"           element={<ProtectedRoute allowedRoles={["admin"]}><AdminFeedback /></ProtectedRoute>} />
+        <Route path="/admin/turnover-reports"   element={<ProtectedRoute allowedRoles={["admin"]}><AdminTurnoverReports /></ProtectedRoute>} />
 
         {/* ── Fallback ── */}
         <Route path="*" element={<Navigate to="/" replace />} />
