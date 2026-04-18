@@ -1,38 +1,132 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import DoctorLayout from "../../components/DoctorLayout";
 import api from "../../services/api";
 import PatientSearchInput from "../../components/PatientSearchInput";
 import DrugSearchInput from "../../components/DrugSearchInput";
 
-const LAB_TESTS = [
-  "FBC",
-  "ESR",
-  "FBS",
-  "Liver Profile",
-  "Renal Profile",
-  "Thyroid Profile",
-  "Serum Vit D Level",
-  "Dengue Ag",
-];
+const LAB_TEST_PRICES = {
+  "FBC":               2100,
+  "FBS":               2300,
+  "ESR":               2500,
+  "Liver Profile":     2150,
+  "Renal Profile":     2250,
+  "Thyroid Profile":   2400,
+  "Serum Vit D Level": 3000,
+  "Dengue Ag":         3500,
+};
+const OTHER_PRICE = 4000;
+const LAB_TESTS = Object.keys(LAB_TEST_PRICES);
 
-const DOSAGE_OPTIONS = [
-  "1 tablet once daily",
-  "1 tablet twice daily (morning & night)",
-  "1 tablet three times daily (morning, noon & night)",
-  "½ tablet once daily",
-  "½ tablet twice daily",
-  "1 tablet at night",
-  "1 tablet before meals",
-  "1 tablet after meals",
-  "2 tablets once daily",
-  "2 tablets twice daily",
-  "1 teaspoon (5ml) twice daily",
-  "1 teaspoon (5ml) three times daily",
-  "Apply topically twice daily",
-  "1 capsule once daily",
-  "1 capsule twice daily",
-];
+const DOSAGE_BY_TYPE = {
+  syrup: [
+    "5ml (1 tsp) once daily",
+    "5ml (1 tsp) twice daily (morning & night)",
+    "5ml (1 tsp) three times daily (morning, noon & night)",
+    "5ml (1 tsp) after meals, twice daily",
+    "5ml (1 tsp) after meals, three times daily",
+    "5ml (1 tsp) at bedtime",
+    "10ml (2 tsp) twice daily",
+    "10ml (2 tsp) three times daily",
+    "2.5ml twice daily",
+    "2.5ml three times daily",
+    "Shake well before use — 5ml twice daily",
+    "Shake well before use — 5ml three times daily",
+    "Shake well before use — 10ml twice daily",
+  ],
+  tablet: [
+    "1 tablet once daily in the morning",
+    "1 tablet once daily at bedtime",
+    "1 tablet twice daily (morning & night)",
+    "1 tablet three times daily (morning, noon & night)",
+    "1 tablet four times daily (every 6 hours)",
+    "½ tablet once daily in the morning",
+    "½ tablet twice daily (morning & night)",
+    "1 tablet before breakfast",
+    "1 tablet after breakfast",
+    "1 tablet 30 minutes before meals",
+    "1 tablet after meals, three times daily",
+    "1 tablet with a full glass of water",
+    "1 tablet with food to avoid stomach upset",
+    "1 tablet at bedtime with milk",
+    "2 tablets once daily in the morning",
+    "2 tablets twice daily (morning & night)",
+    "1 tablet every 8 hours",
+    "1 tablet every 12 hours",
+    "1 tablet when needed (max 3 per day)",
+    "Take 2 tablets immediately, then 1 tablet every 8 hours",
+    "1 tablet daily — do not crush or chew",
+    "Dissolve 1 tablet in water before taking",
+    "1 tablet under the tongue as needed",
+  ],
+  capsule: [
+    "1 capsule once daily in the morning",
+    "1 capsule once daily at bedtime",
+    "1 capsule twice daily (morning & night)",
+    "1 capsule three times daily (morning, noon & night)",
+    "1 capsule before meals",
+    "1 capsule after meals",
+    "1 capsule 30 minutes before breakfast",
+    "1 capsule with a full glass of water — do not open or crush",
+    "1 capsule with food to avoid nausea",
+    "2 capsules once daily in the morning",
+    "2 capsules twice daily (morning & night)",
+    "1 capsule every 8 hours",
+    "1 capsule every 12 hours",
+    "1 capsule at bedtime",
+    "Open capsule and mix with soft food if unable to swallow",
+  ],
+  topical: [
+    "Apply a thin layer to affected area once daily",
+    "Apply a thin layer to affected area twice daily",
+    "Apply a thin layer to affected area three times daily",
+    "Apply and gently massage into skin twice daily",
+    "Apply after cleaning the area, twice daily",
+    "Apply after bathing, once daily",
+  ],
+  general: [
+    "Once daily",
+    "Twice daily (morning & night)",
+    "Three times daily (morning, noon & night)",
+    "At bedtime",
+    "Before meals",
+    "After meals",
+    "As needed",
+  ],
+};
+
+// Detect medicine type — prefer catalog form field, fall back to name keywords
+function detectMedType(name = "", form = "") {
+  // Catalog form takes priority
+  const f = form.toLowerCase();
+  if (f === "syrup" || f === "suspension" || f === "solution" || f === "drops" || f === "elixir") return "syrup";
+  if (f === "capsule") return "capsule";
+  if (f === "tablet")  return "tablet";
+  if (f === "cream" || f === "ointment" || f === "gel" || f === "lotion") return "topical";
+  // Fall back to name string matching
+  const n = name.toLowerCase();
+  if (/syrup|suspension|oral liquid|mixture|linctus|elixir|solution|drops|syr\b/.test(n)) return "syrup";
+  if (/capsule|cap\b/.test(n)) return "capsule";
+  if (/tablet|tab\b/.test(n)) return "tablet";
+  if (/cream|ointment|gel|lotion|topical|paste/.test(n)) return "topical";
+  return "general";
+}
+
+function getMedTypeLabel(type) {
+  return { syrup:"Syrup / Liquid", tablet:"Tablet", capsule:"Capsule", topical:"Topical / Cream", general:"General" }[type] ?? "General";
+}
+
+function getMedTypeColor(type) {
+  return {
+    syrup:   "bg-amber-50 text-amber-700 border-amber-200",
+    tablet:  "bg-blue-50 text-blue-700 border-blue-200",
+    capsule: "bg-purple-50 text-purple-700 border-purple-200",
+    topical: "bg-green-50 text-green-700 border-green-200",
+    general: "bg-gray-100 text-gray-500 border-gray-200",
+  }[type] ?? "bg-gray-100 text-gray-500 border-gray-200";
+}
+
+// Keep a flat list for backward compatibility (edit mode existing dosages)
+const ALL_DOSAGE_OPTIONS = Object.values(DOSAGE_BY_TYPE).flat();
 
 const DURATION_OPTIONS = [
   "3 days",
@@ -73,7 +167,7 @@ function formatDateTime(iso) {
 //   onSaved  — (prescription, isEdit) callback
 //   doctorName — string
 //   existing — null | prescription object (edit mode)
-//   prefill  — null | { patientName, patientId, channelingNo, appointmentId } (from dashboard Start)
+//   prefill  — null | { patientName, patientId, appointmentId } (from dashboard Start)
 // ══════════════════════════════════════════════════════════════
 function PrescriptionModal({ onClose, onSaved, doctorName, existing = null, prefill = null }) {
   const isEdit    = !!existing;
@@ -82,35 +176,63 @@ function PrescriptionModal({ onClose, onSaved, doctorName, existing = null, pref
   // ── Patient info ─────────────────────────────────────────
   const [patientName,   setPatientName]   = useState(existing?.patientName   || prefill?.patientName   || "");
   const [patientId,     setPatientId]     = useState(existing?.patientId     || prefill?.patientId     || "");
-  const [channelingNo,  setChannelingNo]  = useState(existing?.channelingNo  || prefill?.channelingNo  || "");
+
   const [appointmentId, setAppointmentId] = useState(existing?.appointmentId || prefill?.appointmentId || "");
 
   // ── Medications ──────────────────────────────────────────
+  const EMPTY_MED = () => ({ name: "", drugId: "", form: "", dosage: "", duration: "" });
   const [medications, setMedications] = useState(
-    existing?.medications?.length ? existing.medications : [{ name: "", drugId: "", dosage: "", duration: "" }]
+    existing?.medications?.length
+      ? [...existing.medications.map(m => ({ ...m, form: m.form || "" })), { name: "", drugId: "", form: "", dosage: "", duration: "" }]
+      : [{ name: "", drugId: "", form: "", dosage: "", duration: "" }]
   );
 
   // ── Lab tests (new only) ─────────────────────────────────
-  const [checkedTests, setCheckedTests] = useState({});
-  const [otherChecked, setOtherChecked] = useState(false);
-  const [otherText,    setOtherText]    = useState("");
-  const [priority,     setPriority]     = useState("Routine");
-  const [labNotes,     setLabNotes]     = useState("");
+  const [checkedTests,    setCheckedTests]    = useState({});
+  const [testPriorities,  setTestPriorities]  = useState({});
+  const [otherChecked,    setOtherChecked]    = useState(false);
+  const [otherText,       setOtherText]       = useState("");
+  const [otherPriority,   setOtherPriority]   = useState("Routine");
+  const [labNotes,        setLabNotes]        = useState("");
 
   // ── Common ───────────────────────────────────────────────
   const [clinicalNotes, setClinicalNotes] = useState(existing?.clinicalNotes || "");
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState("");
+  const [showLabOnlyConfirm, setShowLabOnlyConfirm] = useState(false);
 
-  const addMedication    = () => setMedications([...medications, { name: "", drugId: "", dosage: "", duration: "" }]);
-  const removeMedication = (i) => setMedications(medications.filter((_, idx) => idx !== i));
-  const updateMed = (i, field, val) => {
-    const updated = [...medications];
-    updated[i][field] = val;
-    setMedications(updated);
+  // Normalise: strip any empty rows in the middle, keep exactly one trailing empty slot.
+  const normalizeMeds = (list) => {
+    const filled = list.filter(m => m.name.trim());
+    if (filled.length === 0) return [{ name: "", drugId: "", form: "", dosage: "", duration: "" }];
+    return [...filled, { name: "", drugId: "", form: "", dosage: "", duration: "" }];
   };
-  const toggleTest = (t) => setCheckedTests(prev => ({ ...prev, [t]: !prev[t] }));
-  const anyLabSelected = Object.values(checkedTests).some(Boolean) || (otherChecked && otherText.trim());
+
+  const removeMedication = (i) => {
+    setMedications(normalizeMeds(medications.filter((_, idx) => idx !== i)));
+  };
+
+  const updateMed = (i, field, val) => {
+    const updated = medications.map((m, idx) => idx === i ? { ...m, [field]: val } : m);
+    // Re-normalise whenever the name changes so empty middle rows collapse immediately
+    if (field === "name") {
+      setMedications(normalizeMeds(updated));
+    } else {
+      setMedications(updated);
+    }
+  };
+  const toggleTest = (t) => {
+    const isNowChecked = !checkedTests[t];
+    setCheckedTests(prev => ({ ...prev, [t]: !prev[t] }));
+    if (isNowChecked) {
+      setTestPriorities(prev => ({ ...prev, [t]: prev[t] || "Routine" }));
+    }
+  };
+  const setTestPriority = (name, p) => setTestPriorities(prev => ({ ...prev, [name]: p }));
+  const selectedNames  = Object.entries(checkedTests).filter(([,v]) => v).map(([k]) => k);
+  const anyLabSelected = selectedNames.length > 0 || (otherChecked && otherText.trim());
+  const urgentCount    = selectedNames.filter(n => testPriorities[n] === "Urgent").length
+                       + (otherChecked && otherText.trim() && otherPriority === "Urgent" ? 1 : 0);
 
   const handleSubmit = async () => {
     setError("");
@@ -121,28 +243,45 @@ function PrescriptionModal({ onClose, onSaved, doctorName, existing = null, pref
       dosage:   m.dosage.replace(/​/g, "").trim(),
       duration: m.duration.replace(/​/g, "").trim(),
     }));
-    if (cleanedMeds.some(m => !m.name.trim() || !m.dosage || !m.duration))
-      return setError("Please fill in all medication fields.");
+    // Only validate rows that have a medicine name filled in
+    const filledMeds = cleanedMeds.filter(m => m.name.trim());
+    if (filledMeds.some(m => !m.dosage))
+      return setError("Please fill in dosage instructions for all added medications.");
+    if (filledMeds.some(m => !m.duration))
+      return setError("Please fill in duration for all added medications.");
+    if (!isEdit && !filledMeds.length && !anyLabSelected)
+      return setError("Please add at least one medication or select a lab test.");
     if (!isEdit && otherChecked && !otherText.trim())
       return setError("Please describe the custom lab test.");
 
-    const labTests = isEdit ? undefined : [
-      ...Object.entries(checkedTests).filter(([, v]) => v).map(([name]) => ({ name, isOther: false })),
-      ...(otherChecked && otherText.trim() ? [{ name: otherText.trim(), isOther: true }] : []),
-    ];
+    // ── Lab-only guard: show confirmation popup ──────────────
+    if (!isEdit && !filledMeds.length && anyLabSelected) {
+      setShowLabOnlyConfirm(true);
+      return;
+    }
 
+    const labTests = isEdit ? undefined : [
+      ...selectedNames.map(name => ({ name, isOther: false, price: LAB_TEST_PRICES[name] || 0, priority: testPriorities[name] || "Routine" })),
+      ...(otherChecked && otherText.trim() ? [{ name: otherText.trim(), isOther: true, price: OTHER_PRICE, priority: otherPriority }] : []),
+    ];
+    const overallLabPriority = labTests?.some(t => t.priority === "Urgent") ? "Urgent" : "Routine";
+
+    await doSave(filledMeds, labTests, overallLabPriority);
+  };
+
+  // ── Shared save logic (called by handleSubmit and lab-only confirm) ──
+  const doSave = async (filledMeds, labTests, overallLabPriority) => {
     setSaving(true);
     try {
       const payload = {
         patientName:   patientName.trim(),
         patientId:     patientId || undefined,
-        channelingNo:  channelingNo.trim(),
         appointmentId: appointmentId.trim() || undefined,
-        medications:   cleanedMeds,
+        medications:   filledMeds,
         clinicalNotes: clinicalNotes.trim(),
         ...(!isEdit && {
           labTests,
-          labPriority: labTests?.length > 0 ? priority : undefined,
+          labPriority: labTests?.length > 0 ? overallLabPriority : undefined,
           labNotes:    labTests?.length > 0 ? labNotes.trim() : undefined,
         }),
       };
@@ -158,6 +297,23 @@ function PrescriptionModal({ onClose, onSaved, doctorName, existing = null, pref
     } finally {
       setSaving(false);
     }
+  };
+
+  // ── Called when doctor confirms the lab-only modal ────────
+  const handleLabOnlyConfirm = async () => {
+    setShowLabOnlyConfirm(false);
+    const cleanedMeds = medications.map(m => ({
+      ...m,
+      dosage:   m.dosage.replace(/​/g, "").trim(),
+      duration: m.duration.replace(/​/g, "").trim(),
+    }));
+    const filledMeds = cleanedMeds.filter(m => m.name.trim());
+    const labTests = [
+      ...selectedNames.map(name => ({ name, isOther: false, price: LAB_TEST_PRICES[name] || 0, priority: testPriorities[name] || "Routine" })),
+      ...(otherChecked && otherText.trim() ? [{ name: otherText.trim(), isOther: true, price: OTHER_PRICE, priority: otherPriority }] : []),
+    ];
+    const overallLabPriority = labTests.some(t => t.priority === "Urgent") ? "Urgent" : "Routine";
+    await doSave(filledMeds, labTests, overallLabPriority);
   };
 
   return (
@@ -230,23 +386,7 @@ function PrescriptionModal({ onClose, onSaved, doctorName, existing = null, pref
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                {/* Channeling No */}
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Channeling No.</label>
-                  <input
-                    value={channelingNo}
-                    onChange={e => setChannelingNo(e.target.value)}
-                    placeholder="e.g. M001"
-                    readOnly={isPrefill}
-                    className={`w-full px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition ${
-                      isPrefill
-                        ? "border-blue-100 bg-blue-50/50 text-blue-800 cursor-default"
-                        : "border-gray-200"
-                    }`}
-                  />
-                </div>
-
+              <div className="grid grid-cols-1 gap-3">
                 {/* Appointment ID — new field */}
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">
@@ -278,69 +418,111 @@ function PrescriptionModal({ onClose, onSaved, doctorName, existing = null, pref
                 Medications
                 <span className="ml-1.5 text-blue-500 normal-case font-normal">(→ pharmacy)</span>
               </label>
-              <button onClick={addMedication} className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 transition">
-                <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                  <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd"/>
-                </svg>
-                Add Medication
-              </button>
+
             </div>
+
+
             <div className="space-y-3">
-              {medications.map((med, i) => (
-                <div key={i} className="p-4 rounded-xl bg-blue-50/40 border border-blue-100 relative">
-                  {medications.length > 1 && (
-                    <button onClick={() => removeMedication(i)} className="absolute top-3 right-3 p-1 hover:bg-red-100 rounded-lg transition text-red-400">
+              {medications.map((med, i) => {
+                const medType      = detectMedType(med.name, med.form || "");
+                const dosageOpts   = DOSAGE_BY_TYPE[medType] ?? DOSAGE_BY_TYPE.general;
+                const isKnownDosage = dosageOpts.includes(med.dosage) || ALL_DOSAGE_OPTIONS.includes(med.dosage);
+                const isCustomMode  = med.dosage !== "" && !isKnownDosage;
+                const isTrailingEmpty = !med.name.trim() && i === medications.length - 1;
+                return (
+                  <div key={i} className={`p-4 rounded-xl border relative transition-all ${
+                    isTrailingEmpty
+                      ? "border-dashed border-blue-200 bg-blue-50/20"
+                      : "bg-blue-50/40 border-blue-100"
+                  }`}>
+                    {/* Row number badge for filled rows */}
+                    {!isTrailingEmpty && (
+                      <span className="absolute top-3 left-3 w-5 h-5 rounded-full bg-blue-100 text-blue-600 text-[10px] font-bold flex items-center justify-center">
+                        {medications.filter((m, idx) => m.name.trim() && idx <= i).length}
+                      </span>
+                    )}
+                    {/* Trailing empty row hint */}
+                    {isTrailingEmpty && (
+                      <div className="flex items-center gap-2 mb-3 text-blue-300">
+                        <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 flex-shrink-0">
+                          <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd"/>
+                        </svg>
+                        <span className="text-[11px] font-medium">Add another medicine…</span>
+                      </div>
+                    )}
+                    <button onClick={() => removeMedication(i)} className={`absolute top-3 right-3 p-1 hover:bg-red-100 rounded-lg transition text-red-400 ${isTrailingEmpty ? "opacity-0 pointer-events-none" : ""}`}>
                       <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                         <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd"/>
                       </svg>
                     </button>
-                  )}
-                  <div className="grid grid-cols-3 gap-3 pr-6">
-                    <div className="col-span-3">
-                      <label className="block text-xs text-gray-500 mb-1">
-                        Medicine Name & Strength <span className="text-red-400">*</span>
-                      </label>
-                      <DrugSearchInput
-                        value={med.name}
-                        onChange={(name, drugId, drugObj) => {
-                          updateMed(i, "name", name);
-                          updateMed(i, "drugId", drugId || "");
-                        }}
-                        placeholder="Search pharmacy catalog or type name…"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-xs text-gray-500 mb-1">
-                        Dosage Instructions <span className="text-red-400">*</span>
-                      </label>
-                      <select
-                        value={DOSAGE_OPTIONS.includes(med.dosage) ? med.dosage : ""}
-                        onChange={e => {
-                          if (e.target.value === "__custom__") {
-                            updateMed(i, "dosage", "​"); // zero-width space triggers custom mode
-                          } else {
-                            updateMed(i, "dosage", e.target.value);
-                          }
-                        }}
-                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition bg-white"
-                      >
-                        <option value="">Select dosage instructions…</option>
-                        {DOSAGE_OPTIONS.map(opt => (
-                          <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                        <option value="__custom__">✏️  Type custom instructions…</option>
-                      </select>
-                      {(!DOSAGE_OPTIONS.includes(med.dosage) && med.dosage !== "") && (
-                        <input
-                          value={med.dosage.replace(/​/g, "")}
-                          onChange={e => updateMed(i, "dosage", e.target.value || "​")}
-                          placeholder="Type custom dosage instructions…"
-                          autoFocus
-                          className="mt-1.5 w-full px-3 py-2 rounded-lg border border-blue-300 bg-blue-50 text-sm text-blue-900 placeholder-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                    <div className={`grid grid-cols-3 gap-3 ${isTrailingEmpty ? "pr-2" : "pl-7 pr-6"}`}>
+                      <div className="col-span-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs text-gray-500">Medicine Name &amp; Strength</label>
+                          {/* Type badge — shown once name is entered */}
+                          {med.name.trim() && (
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getMedTypeColor(medType)}`}>
+                              {getMedTypeLabel(medType)}
+                            </span>
+                          )}
+                        </div>
+                        <DrugSearchInput
+                          value={med.name}
+                          onChange={(name, drugId, drugObj) => {
+                            const newForm = drugObj?.form || "";
+                            const newType = detectMedType(name, newForm);
+                            const oldType = detectMedType(med.name, med.form || "");
+                            const resetDosage = newType !== oldType;
+                            const updated = medications.map((m, idx) =>
+                              idx === i
+                                ? { ...m, name, drugId: drugId || "", form: newForm, dosage: resetDosage ? "" : m.dosage }
+                                : m
+                            );
+                            // Use same normalise so selecting/clearing a drug also collapses empty rows
+                            setMedications(normalizeMeds(updated));
+                          }}
+                          placeholder="Search pharmacy catalog or type name…"
                         />
-                      )}
-                    </div>
-                    <div>
+                      </div>
+                      {!isTrailingEmpty && <div className="col-span-2">
+                        <label className="block text-xs text-gray-500 mb-1">
+                          Dosage Instructions <span className="text-red-400">*</span>
+                          {med.name.trim() && (
+                            <span className="ml-1 text-gray-400 font-normal">
+                              — {getMedTypeLabel(medType)} instructions
+                            </span>
+                          )}
+                        </label>
+                        <select
+                          value={isCustomMode ? "__custom__" : (dosageOpts.includes(med.dosage) || ALL_DOSAGE_OPTIONS.includes(med.dosage) ? med.dosage : "")}
+                          onChange={e => {
+                            if (e.target.value === "__custom__") {
+                              updateMed(i, "dosage", "\u200b"); // zero-width space → custom mode
+                            } else {
+                              updateMed(i, "dosage", e.target.value);
+                            }
+                          }}
+                          className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition bg-white"
+                        >
+                          <option value="">
+                            {med.name.trim() ? `Select ${getMedTypeLabel(medType).toLowerCase()} instructions…` : "Select dosage instructions…"}
+                          </option>
+                          {dosageOpts.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                          <option value="__custom__">✏️  Type custom instructions…</option>
+                        </select>
+                        {isCustomMode && (
+                          <input
+                            value={med.dosage.replace(/\u200b/g, "")}
+                            onChange={e => updateMed(i, "dosage", e.target.value || "\u200b")}
+                            placeholder="Type custom dosage instructions…"
+                            autoFocus
+                            className="mt-1.5 w-full px-3 py-2 rounded-lg border border-blue-300 bg-blue-50 text-sm text-blue-900 placeholder-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                          />
+                        )}
+                      </div>}
+                    {!isTrailingEmpty && <div>
                       <label className="block text-xs text-gray-500 mb-1">
                         Duration <span className="text-red-400">*</span>
                       </label>
@@ -370,10 +552,11 @@ function PrescriptionModal({ onClose, onSaved, doctorName, existing = null, pref
                           className="mt-1.5 w-full px-3 py-2 rounded-lg border border-blue-300 bg-blue-50 text-sm text-blue-900 placeholder-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                         />
                       )}
-                    </div>
+                    </div>}
                   </div>
                 </div>
-              ))}
+              );
+            })}
             </div>
           </div>
 
@@ -388,30 +571,9 @@ function PrescriptionModal({ onClose, onSaved, doctorName, existing = null, pref
 
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Select Tests</label>
-                  {anyLabSelected && (
-                    <span className="text-xs bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full font-semibold">
-                      {Object.values(checkedTests).filter(Boolean).length + (otherChecked && otherText ? 1 : 0)} selected
-                    </span>
-                  )}
                 </div>
 
-                {anyLabSelected && (
-                  <div className="flex flex-wrap gap-1.5 mb-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
-                    {Object.entries(checkedTests).filter(([, v]) => v).map(([name]) => (
-                      <span key={name} className="flex items-center gap-1 text-xs bg-blue-600 text-white px-3 py-1 rounded-full font-medium">
-                        {name} <button onClick={() => toggleTest(name)} className="hover:text-blue-200 ml-0.5">×</button>
-                      </span>
-                    ))}
-                    {otherChecked && otherText && (
-                      <span className="flex items-center gap-1 text-xs bg-amber-500 text-white px-3 py-1 rounded-full font-medium">
-                        ★ {otherText}
-                        <button onClick={() => { setOtherChecked(false); setOtherText(""); }} className="hover:text-amber-200 ml-0.5">×</button>
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-2 max-h-52 overflow-y-auto pr-1">
+                <div className="grid grid-cols-2 gap-2 mb-3">
                   {LAB_TESTS.map(test => (
                     <label key={test} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border cursor-pointer transition text-sm ${
                       checkedTests[test]
@@ -437,27 +599,61 @@ function PrescriptionModal({ onClose, onSaved, doctorName, existing = null, pref
                 {otherChecked && (
                   <input value={otherText} onChange={e => setOtherText(e.target.value)} autoFocus
                     placeholder="Describe the custom test…"
-                    className="mt-3 w-full px-4 py-2.5 rounded-xl border border-amber-300 bg-amber-50 text-sm text-amber-900 placeholder-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400 transition"/>
+                    className="mb-3 w-full px-4 py-2.5 rounded-xl border border-amber-300 bg-amber-50 text-sm text-amber-900 placeholder-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400 transition"/>
+                )}
+
+                {/* ── Per-test priority panel ── */}
+                {anyLabSelected && (
+                  <div className="rounded-xl border border-gray-200 overflow-hidden mb-3">
+                    <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Set priority per test</p>
+                      <div className="flex items-center gap-2">
+                        {urgentCount > 0 && (
+                          <span className="text-xs bg-red-100 text-red-600 px-2.5 py-0.5 rounded-full font-semibold">🚨 {urgentCount} Urgent</span>
+                        )}
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full font-semibold">
+                          {selectedNames.length + (otherChecked && otherText ? 1 : 0)} selected
+                        </span>
+                      </div>
+                    </div>
+                    <div className="divide-y divide-gray-100">
+                      {selectedNames.map(name => (
+                        <div key={name} className="flex items-center justify-between px-4 py-2.5 bg-white">
+                          <span className="text-sm font-medium text-gray-700">{name}</span>
+                          <div className="flex rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
+                            <button type="button" onClick={() => setTestPriority(name, "Routine")}
+                              className={`px-2 py-0.5 text-[10px] font-semibold transition ${
+                                (testPriorities[name] || "Routine") === "Routine" ? "bg-blue-600 text-white" : "bg-white text-gray-400 hover:bg-gray-50"
+                              }`}>Routine</button>
+                            <button type="button" onClick={() => setTestPriority(name, "Urgent")}
+                              className={`px-2 py-0.5 text-[10px] font-semibold transition border-l border-gray-200 ${
+                                testPriorities[name] === "Urgent" ? "bg-red-500 text-white" : "bg-white text-gray-400 hover:bg-gray-50"
+                              }`}>🚨 Urgent</button>
+                          </div>
+                        </div>
+                      ))}
+                      {otherChecked && otherText && (
+                        <div className="flex items-center justify-between px-4 py-2.5 bg-white">
+                          <span className="text-sm font-medium text-amber-700">★ {otherText}</span>
+                          <div className="flex rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
+                            <button type="button" onClick={() => setOtherPriority("Routine")}
+                              className={`px-2 py-0.5 text-[10px] font-semibold transition ${
+                                otherPriority === "Routine" ? "bg-blue-600 text-white" : "bg-white text-gray-400 hover:bg-gray-50"
+                              }`}>Routine</button>
+                            <button type="button" onClick={() => setOtherPriority("Urgent")}
+                              className={`px-2 py-0.5 text-[10px] font-semibold transition border-l border-gray-200 ${
+                                otherPriority === "Urgent" ? "bg-red-500 text-white" : "bg-white text-gray-400 hover:bg-gray-50"
+                              }`}>🚨 Urgent</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
 
               {anyLabSelected && (
                 <div className="px-5 pb-5 space-y-4 border-t border-blue-200 pt-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Priority</label>
-                    <div className="flex gap-3">
-                      {["Routine", "Urgent"].map(p => (
-                        <label key={p} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer transition text-sm font-medium ${
-                          priority === p
-                            ? p === "Urgent" ? "border-red-400 bg-red-50 text-red-700" : "border-blue-400 bg-blue-50 text-blue-700"
-                            : "border-gray-200 text-gray-700 hover:bg-gray-50 bg-white"
-                        }`}>
-                          <input type="radio" name="priority" value={p} checked={priority === p} onChange={() => setPriority(p)} className="accent-blue-600"/>
-                          {p === "Urgent" ? "🚨" : "📋"} {p}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Clinical Notes for Lab</label>
                     <textarea value={labNotes} onChange={e => setLabNotes(e.target.value)}
@@ -499,7 +695,7 @@ function PrescriptionModal({ onClose, onSaved, doctorName, existing = null, pref
                 <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">🧪</div>
                 <div>
                   <span className="font-semibold text-gray-700">Lab</span> — receives lab request automatically
-                  {priority === "Urgent" && <span className="ml-2 text-red-600 font-semibold">🚨 Urgent</span>}
+                  {urgentCount > 0 && <span className="ml-2 text-red-600 font-semibold">🚨 Urgent</span>}
                 </div>
               </div>
             )}
@@ -528,6 +724,73 @@ function PrescriptionModal({ onClose, onSaved, doctorName, existing = null, pref
 // If the prescription has a linked lab request, offers the choice
 // to cancel it too — otherwise just confirms the prescription delete.
 // ══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+// LAB-ONLY CONFIRMATION MODAL
+// Shown when doctor submits a prescription with lab tests but no medicines
+// ══════════════════════════════════════════════════════════════
+function LabOnlyConfirmModal({ labTests, patientName, onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+
+        {/* Header */}
+        <div className="px-6 pt-6 pb-3">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
+            style={{ background: "linear-gradient(135deg,#FEF3C7,#FDE68A)" }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth={2} className="w-6 h-6">
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <h3 className="font-bold text-gray-800 text-base">No Medicines Added</h3>
+          <p className="text-sm text-gray-500 mt-1.5 leading-relaxed">
+            This prescription for <strong>{patientName}</strong> contains only lab test{labTests.length > 1 ? "s" : ""} — no medications have been prescribed.
+          </p>
+        </div>
+
+        {/* Lab test list */}
+        <div className="mx-6 mb-4 rounded-xl border border-amber-200 bg-amber-50 overflow-hidden">
+          <div className="px-3 py-2 border-b border-amber-200 flex items-center gap-2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth={2} className="w-4 h-4 flex-shrink-0">
+              <path d="M6 2v6l-4 8a2 2 0 001.8 3h12.4A2 2 0 0018 16l-4-8V2"/><line x1="6" y1="2" x2="18" y2="2"/>
+            </svg>
+            <span className="text-xs font-bold text-amber-700 uppercase tracking-wide">Lab Tests Only</span>
+          </div>
+          <ul className="divide-y divide-amber-100">
+            {labTests.map((t, i) => (
+              <li key={i} className="flex items-center justify-between px-3 py-2 gap-2">
+                <span className="text-sm text-gray-700 font-medium">{t.name}</span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  t.priority === "Urgent"
+                    ? "bg-red-100 text-red-600 border border-red-200"
+                    : "bg-blue-50 text-blue-600 border border-blue-200"
+                }`}>{t.priority}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="px-6 pb-4 text-xs text-gray-400 leading-relaxed">
+          Are you sure you want to send this lab-only prescription? The lab request will be created and the patient will be notified.
+        </p>
+
+        {/* Actions */}
+        <div className="flex gap-3 px-6 pb-6">
+          <button onClick={onCancel}
+            className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+            Go Back
+          </button>
+          <button onClick={onConfirm}
+            className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition hover:opacity-90"
+            style={{ background: "linear-gradient(135deg, #D97706, #F59E0B)" }}>
+            Send Lab Only
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CancelModal({ rx, labRequest, onConfirm, onClose }) {
   const [cancelLab, setCancelLab] = useState(false);
   const hasLab = !!rx.labRequestRef;
@@ -639,7 +902,8 @@ export default function DoctorPrescriptions() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  const loadPrescriptions = async () => {
+  const loadPrescriptions = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await api.get("/prescriptions");
       setPrescriptions(res.data.prescriptions || []);
@@ -649,6 +913,12 @@ export default function DoctorPrescriptions() {
 
   useEffect(() => { loadPrescriptions(); }, []);
 
+  // ── Auto-refresh every 30 seconds ────────────────────────────
+  useEffect(() => {
+    const interval = setInterval(() => loadPrescriptions(true), 5_000);
+    return () => clearInterval(interval);
+  }, []);
+
   // ── Read URL prefill params set by dashboard "Start" button ──
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -657,7 +927,7 @@ export default function DoctorPrescriptions() {
         appointmentId: params.get("appointmentId") || "",
         patientName:   params.get("patientName")   || "",
         patientId:     params.get("patientId")     || "",
-        channelingNo:  params.get("channelingNo")  || "",
+
       };
       setPrefillData(data);
       setShowModal(true);
@@ -798,7 +1068,7 @@ export default function DoctorPrescriptions() {
   const dispensed   = prescriptions.filter(p => p.pharmacyStatus === "dispensed").length;
 
   return (
-    <DoctorLayout activePage="Prescriptions">
+  <>
       {toast && (
         <div className={`fixed top-6 right-6 z-50 px-5 py-3.5 rounded-xl border shadow-lg text-sm font-medium ${
           toast.type === "success" ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-700"
@@ -922,8 +1192,6 @@ export default function DoctorPrescriptions() {
                       <div>
                         <div className="text-sm font-semibold text-gray-800">{rx.patientName}</div>
                         <div className="text-xs text-gray-400 flex items-center gap-1.5 flex-wrap">
-                          {rx.channelingNo && <span>Ch. {rx.channelingNo}</span>}
-                          {rx.channelingNo && <span className="text-gray-200">·</span>}
                           {rx.appointmentId && (
                             <span className="font-mono text-blue-500">{rx.appointmentId}</span>
                           )}
@@ -1149,6 +1417,6 @@ export default function DoctorPrescriptions() {
           </div>
         )}
       </div>
-    </DoctorLayout>
+  </>
   );
 }
