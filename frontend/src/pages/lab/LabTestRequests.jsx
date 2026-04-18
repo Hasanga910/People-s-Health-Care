@@ -51,7 +51,7 @@ function PaymentConfirmModal({ request, onConfirm, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md">
-        <div className="px-6 py-5 rounded-t-3xl" style={{ background: "linear-gradient(135deg, #0D2137, #006064)" }}>
+        <div className="px-6 py-5 rounded-t-3xl" style={{ background: "linear-gradient(135deg, #0D2137, #0D47A1)" }}>
           <h3 className="text-white font-bold text-lg" style={{ fontFamily: "'Playfair Display', serif" }}>
             💳 Payment Confirmation
           </h3>
@@ -61,11 +61,11 @@ function PaymentConfirmModal({ request, onConfirm, onClose }) {
           <div className="bg-gray-50 rounded-2xl p-4 text-sm">
             <div className="font-semibold text-gray-800">{request.patientName}</div>
             <div className="text-xs text-gray-500 mt-1">
-              Request: <span className="font-mono text-teal-700">{request.labRequestId}</span>
+              Request: <span className="font-mono text-blue-700">{request.labRequestId}</span>
             </div>
             <div className="flex flex-wrap gap-1 mt-2">
               {request.tests?.map(t => (
-                <span key={t.name} className="text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full">{t.name}</span>
+                <span key={t.name} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{t.name}</span>
               ))}
             </div>
           </div>
@@ -80,7 +80,7 @@ function PaymentConfirmModal({ request, onConfirm, onClose }) {
               onChange={e => setPaymentId(e.target.value)}
               onKeyDown={e => e.key === "Enter" && handleConfirm()}
               placeholder="e.g. PAY-2026-0042"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -97,7 +97,7 @@ function PaymentConfirmModal({ request, onConfirm, onClose }) {
             </button>
             <button onClick={handleConfirm} disabled={loading}
               className="flex-1 py-3 rounded-xl text-white text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
-              style={{ background: "linear-gradient(135deg, #006064, #00838F)" }}>
+              style={{ background: "linear-gradient(135deg, #0D47A1, #1565C0)" }}>
               {loading ? (
                 <>
                   <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
@@ -273,7 +273,7 @@ function RequestDetailModal({ request, onClose, onPaymentConfirm, onGoToUpload }
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
         <div className="px-6 py-5 flex items-center justify-between rounded-t-3xl"
-          style={{ background: "linear-gradient(135deg, #0D2137, #006064)" }}>
+          style={{ background: "linear-gradient(135deg, #0D2137, #0D47A1)" }}>
           <div>
             <p className="text-white/60 text-xs">Lab Request</p>
             <h3 className="text-white font-bold text-lg" style={{ fontFamily: "'Playfair Display', serif" }}>{request.labRequestId}</h3>
@@ -292,7 +292,7 @@ function RequestDetailModal({ request, onClose, onPaymentConfirm, onGoToUpload }
         <div className="p-6 space-y-5">
           <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl">
             <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, #006064, #00838F)" }}>
+              style={{ background: "linear-gradient(135deg, #0D47A1, #1565C0)" }}>
               {request.patientName?.split(" ").map(n => n[0]).join("").slice(0, 2)}
             </div>
             <div className="flex-1">
@@ -314,17 +314,17 @@ function RequestDetailModal({ request, onClose, onPaymentConfirm, onGoToUpload }
                   <div key={step.key} className="flex items-center flex-1">
                     <div className="flex flex-col items-center flex-1">
                       <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition ${done ? "text-white" : "bg-gray-100 text-gray-400"}`}
-                        style={done ? { background: "linear-gradient(135deg, #006064, #00838F)" } : {}}>
+                        style={done ? { background: "linear-gradient(135deg, #0D47A1, #1565C0)" } : {}}>
                         {done ? "✓" : i + 1}
                       </div>
-                      <span className={`text-xs mt-1 text-center leading-tight ${active ? "text-teal-700 font-semibold" : "text-gray-400"}`}>
+                      <span className={`text-xs mt-1 text-center leading-tight ${active ? "text-blue-700 font-semibold" : "text-gray-400"}`}>
                         {step.label}
                       </span>
                       <span className="text-xs text-gray-300 text-center leading-tight hidden lg:block">
                         {step.desc}
                       </span>
                     </div>
-                    {i < WORKFLOW_STEPS.length - 1 && <div className={`h-0.5 flex-1 mb-6 mx-1 ${currentIdx > i ? "bg-teal-400" : "bg-gray-100"}`} />}
+                    {i < WORKFLOW_STEPS.length - 1 && <div className={`h-0.5 flex-1 mb-6 mx-1 ${currentIdx > i ? "bg-blue-500" : "bg-gray-100"}`} />}
                   </div>
                 );
               })}
@@ -335,7 +335,7 @@ function RequestDetailModal({ request, onClose, onPaymentConfirm, onGoToUpload }
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Tests Requested</p>
             <div className="flex flex-wrap gap-2">
               {request.tests?.map(t => (
-                <span key={t.name} className="text-sm bg-teal-50 text-teal-700 border border-teal-100 px-3 py-1.5 rounded-xl font-medium">
+                <span key={t.name} className="text-sm bg-blue-50 text-blue-700 border border-blue-100 px-3 py-1.5 rounded-xl font-medium">
                   🧪 {t.name}
                 </span>
               ))}
@@ -359,7 +359,7 @@ function RequestDetailModal({ request, onClose, onPaymentConfirm, onGoToUpload }
           {(statusKey === "pre_check" || statusKey === "sample_received" || statusKey === "in_progress") && (
             <button onClick={() => onGoToUpload(request)}
               className="w-full py-3 rounded-xl text-white text-sm font-semibold"
-              style={{ background: "linear-gradient(135deg, #00897B, #1565C0)" }}>
+              style={{ background: "linear-gradient(135deg, #0D47A1, #1565C0)" }}>
               📤 Go to Upload Results
             </button>
           )}
@@ -477,7 +477,7 @@ export default function LabTestRequests() {
           {[
             { label: "Pending",     value: counts.pending,     color: "#E65100", bg: "#FFF3E0" },
             { label: "In Progress", value: counts.in_progress, color: "#1565C0", bg: "#E3F2FD" },
-            { label: "Completed",   value: counts.completed,   color: "#00897B", bg: "#E0F2F1" },
+            { label: "Completed",   value: counts.completed,   color: "#1565C0", bg: "#E3F2FD" },
           ].map(s => (
             <div key={s.label} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
               <div className="text-2xl font-bold" style={{ fontFamily: "'Playfair Display', serif", color: s.color }}>{s.value}</div>
@@ -492,13 +492,13 @@ export default function LabTestRequests() {
               <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"/>
             </svg>
             <input type="text" placeholder="Search patient or ID…" value={search} onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"/>
+              className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
           </div>
           <div className="flex gap-2 flex-wrap">
             {["All", "pending", "in_progress", "completed"].map(s => (
               <button key={s} onClick={() => setStatusFilter(s)}
                 className={`px-3 py-2 rounded-xl text-xs font-semibold transition capitalize ${statusFilter === s ? "text-white shadow-md" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-                style={statusFilter === s ? { background: "linear-gradient(135deg, #006064, #00838F)" } : {}}>
+                style={statusFilter === s ? { background: "linear-gradient(135deg, #0D47A1, #1565C0)" } : {}}>
                 {s === "All" ? "All" : STATUS_CONFIG[s]?.label || s}
               </button>
             ))}
@@ -524,18 +524,18 @@ export default function LabTestRequests() {
                   <div className="flex items-center gap-4 px-6 py-4">
                     <div className="w-1.5 h-12 rounded-full flex-shrink-0" style={{ background: cfg.bar }}/>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                      style={{ background: "linear-gradient(135deg, #006064, #00838F)" }}>
+                      style={{ background: "linear-gradient(135deg, #0D47A1, #1565C0)" }}>
                       {req.patientName?.split(" ").map(n => n[0]).join("").slice(0, 2)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <span className="text-sm font-semibold text-gray-800">{req.patientName}</span>
-                        {req.channelingNo && <span className="font-mono text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full">Ch. #{req.channelingNo}</span>}
+                        {req.channelingNo && <span className="font-mono text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">Ch. #{req.channelingNo}</span>}
                         {req.priority === "Urgent" && <span className="text-xs bg-red-100 text-red-600 font-bold px-2 py-0.5 rounded-full border border-red-200">🚨 Urgent</span>}
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         {req.tests?.slice(0, 3).map(t => (
-                          <span key={t.name} className="text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full">{t.name}</span>
+                          <span key={t.name} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{t.name}</span>
                         ))}
                         {req.tests?.length > 3 && <span className="text-xs text-gray-400">+{req.tests.length - 3}</span>}
                       </div>

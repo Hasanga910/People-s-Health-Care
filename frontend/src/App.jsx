@@ -12,6 +12,7 @@ import DoctorPrescriptions    from "./pages/doctor/DoctorPrescriptions";
 import DoctorLabRequests      from "./pages/doctor/DoctorLabRequests";
 import DoctorPatients         from "./pages/doctor/DoctorPatients";
 import DoctorAnalysis         from "./pages/doctor/DoctorAnalysis";
+import DoctorLabResults       from "./pages/doctor/DoctorLabResults";
 import DoctorMedicineAnalysis from "./pages/doctor/DoctorMedicineAnalysis";
 import DoctorSettings         from "./pages/doctor/DoctorSettings";
 
@@ -22,6 +23,7 @@ import PatientPrescriptions from "./pages/patient/PatientPrescriptions";
 import PatientLabResults    from "./pages/patient/PatientLabResults";
 import PatientBilling       from "./pages/patient/PatientBilling";
 import PatientProfile       from "./pages/patient/PatientProfile";
+import PatientFeedback      from "./pages/patient/PatientFeedback";
 
 // Lab
 import LabDashboard     from "./pages/lab/LabDashboard";
@@ -47,6 +49,7 @@ import AdminAppointments from "./pages/admin/AdminAppointments";
 import AdminPatients     from "./pages/admin/AdminPatients";
 import AdminFinance      from "./pages/admin/AdminFinance";
 import AdminSettings     from "./pages/admin/AdminSettings";
+import AdminFeedback     from "./pages/admin/AdminFeedback";
 
 // ══════════════════════════════════════════════════════════════
 // Auth helpers
@@ -112,9 +115,9 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         {/* ── Public ── */}
-        <Route path="/" element={<Index />} />
-        <Route path="/login"    element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/" element={<PublicOnlyRoute><Index /></PublicOnlyRoute>} />
+        <Route path="/login"    element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
+        <Route path="/register" element={<PublicOnlyRoute><Register /></PublicOnlyRoute>} />
 
         {/* ── Doctor ── */}
         <Route path="/doctor"                  element={<ProtectedRoute allowedRoles={["doctor"]}><DoctorDashboard /></ProtectedRoute>} />
@@ -122,6 +125,7 @@ export default function App() {
         <Route path="/doctor/appointments"     element={<ProtectedRoute allowedRoles={["doctor"]}><DoctorAppointments /></ProtectedRoute>} />
         <Route path="/doctor/prescriptions"    element={<ProtectedRoute allowedRoles={["doctor"]}><DoctorPrescriptions /></ProtectedRoute>} />
         <Route path="/doctor/lab-requests"     element={<ProtectedRoute allowedRoles={["doctor"]}><DoctorLabRequests /></ProtectedRoute>} />
+        <Route path="/doctor/lab-results"      element={<ProtectedRoute allowedRoles={["doctor"]}><DoctorLabResults /></ProtectedRoute>} />
         <Route path="/doctor/patients"         element={<ProtectedRoute allowedRoles={["doctor"]}><DoctorPatients /></ProtectedRoute>} />
         <Route path="/doctor/analysis"         element={<ProtectedRoute allowedRoles={["doctor"]}><DoctorAnalysis /></ProtectedRoute>} />
         <Route path="/doctor/medicine-analysis"element={<ProtectedRoute allowedRoles={["doctor"]}><DoctorMedicineAnalysis /></ProtectedRoute>} />
@@ -135,6 +139,7 @@ export default function App() {
         <Route path="/patient/lab-results"  element={<ProtectedRoute allowedRoles={["patient"]}><PatientLabResults /></ProtectedRoute>} />
         <Route path="/patient/billing"      element={<ProtectedRoute allowedRoles={["patient"]}><PatientBilling /></ProtectedRoute>} />
         <Route path="/patient/profile"      element={<ProtectedRoute allowedRoles={["patient"]}><PatientProfile /></ProtectedRoute>} />
+        <Route path="/patient/feedback"     element={<ProtectedRoute allowedRoles={["patient"]}><PatientFeedback /></ProtectedRoute>} />
 
         {/* ── Lab ── */}
         <Route path="/lab"            element={<ProtectedRoute allowedRoles={["lab"]}><LabDashboard /></ProtectedRoute>} />
@@ -164,6 +169,7 @@ export default function App() {
         <Route path="/admin/patients"     element={<ProtectedRoute allowedRoles={["admin"]}><AdminPatients /></ProtectedRoute>} />
         <Route path="/admin/finance"      element={<ProtectedRoute allowedRoles={["admin"]}><AdminFinance /></ProtectedRoute>} />
         <Route path="/admin/settings"     element={<ProtectedRoute allowedRoles={["admin"]}><AdminSettings /></ProtectedRoute>} />
+        <Route path="/admin/feedback"     element={<ProtectedRoute allowedRoles={["admin"]}><AdminFeedback /></ProtectedRoute>} />
 
         {/* ── Fallback ── */}
         <Route path="*" element={<Navigate to="/" replace />} />

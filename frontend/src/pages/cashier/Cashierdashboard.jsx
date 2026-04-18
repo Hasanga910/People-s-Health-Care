@@ -36,7 +36,7 @@ export default function CashierDashboard() {
 
         {/* Welcome banner */}
         <div className="rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden"
-          style={{ background: "linear-gradient(135deg, #0D2137 0%, #2E7D32 60%, #00897B 100%)" }}>
+          style={{ background: "linear-gradient(135deg, #0D2137 0%, #01579B 60%, #0277BD 100%)" }}>
           <div className="absolute right-0 top-0 bottom-0 w-48 opacity-10">
             <svg viewBox="0 0 200 200" fill="white"><circle cx="150" cy="100" r="90"/><circle cx="40" cy="40" r="50"/></svg>
           </div>
@@ -46,7 +46,7 @@ export default function CashierDashboard() {
               Cashier Dashboard
             </h2>
             <p className="text-white/60 text-sm mt-1">
-              <span className="text-amber-200 font-bold">LKR {todayRevenue.toLocaleString()}</span> collected today
+              <span className="text-blue-200 font-bold">LKR {todayRevenue.toLocaleString()}</span> collected today
               {unpaidCount > 0 && <span className="ml-2 text-red-300 font-bold">· {unpaidCount} unpaid bill{unpaidCount > 1 ? "s" : ""}</span>}
             </p>
           </div>
@@ -65,7 +65,7 @@ export default function CashierDashboard() {
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: "Today's Collections", value: `LKR ${todayRevenue.toLocaleString()}`, icon: "💰", color: "#2E7D32", bg: "#E8F5E9" },
+            { label: "Today's Collections", value: `LKR ${todayRevenue.toLocaleString()}`, icon: "💰", color: "#01579B", bg: "#E1F5FE" },
             { label: "Unpaid Bills",         value: unpaidCount,                            icon: "⏳", color: "#B71C1C", bg: "#FFEBEE" },
             { label: "Total Transactions",   value: RECENT_SALES.length,                   icon: "🧾", color: "#1565C0", bg: "#E3F2FD" },
             { label: "Avg. Rating Today",    value: `${avgRating} / 5`,                    icon: "⭐", color: "#37474F", bg: "#ECEFF1" },
@@ -98,14 +98,14 @@ export default function CashierDashboard() {
               {RECENT_SALES.map(sale => (
                 <div key={sale.id} className="flex items-center gap-4 px-6 py-4 hover:bg-gray-50 transition">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                    style={{ background: sale.paid ? "linear-gradient(135deg, #2E7D32, #00897B)" : "#9CA3AF" }}>
+                    style={{ background: sale.paid ? "linear-gradient(135deg, #01579B, #0277BD)" : "#9CA3AF" }}>
                     {sale.patient.split(" ").map(n=>n[0]).join("").slice(0,2)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold text-gray-800">{sale.patient}</div>
                     <div className="text-xs text-gray-400">{sale.id} · {sale.items} items · {sale.time}</div>
                   </div>
-                  <div className="text-sm font-bold flex-shrink-0" style={{ color: sale.paid ? "#2E7D32" : "#B71C1C" }}>
+                  <div className="text-sm font-bold flex-shrink-0" style={{ color: sale.paid ? "#01579B" : "#B71C1C" }}>
                     LKR {sale.total.toLocaleString()}
                   </div>
                   <span className={`text-xs font-semibold px-3 py-1 rounded-full border flex-shrink-0 ${
@@ -125,7 +125,7 @@ export default function CashierDashboard() {
               <h3 className="font-semibold text-gray-800 text-sm mb-4">Quick Actions</h3>
               <div className="space-y-2">
                 {[
-                  { label: "Process Payment",  href: "/cashier/billing",  icon: "💳", color: "#2E7D32", bg: "#E8F5E9" },
+                  { label: "Process Payment",  href: "/cashier/billing",  icon: "💳", color: "#01579B", bg: "#E1F5FE" },
                   { label: "View All Bills",   href: "/cashier/billing",  icon: "🧾", color: "#1565C0", bg: "#E3F2FD" },
                   { label: "Patient Feedback", href: "/cashier/feedback", icon: "⭐", color: "#37474F", bg: "#ECEFF1" },
                 ].map(action => (

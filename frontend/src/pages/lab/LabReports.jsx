@@ -113,7 +113,7 @@ function ReportModal({ report, onClose }) {
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="px-6 py-5 flex items-center justify-between"
-          style={{ background: "linear-gradient(135deg, #0D2137, #006064)" }}>
+          style={{ background: "linear-gradient(135deg, #0D2137, #0D47A1)" }}>
           <div>
             <p className="text-white/60 text-xs">Laboratory Report</p>
             <h3 className="text-white font-bold text-xl" style={{ fontFamily: "'Playfair Display', serif" }}>
@@ -148,7 +148,7 @@ function ReportModal({ report, onClose }) {
               <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Patient</p>
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                  style={{ background: "linear-gradient(135deg, #006064, #00838F)" }}>
+                  style={{ background: "linear-gradient(135deg, #0D47A1, #1565C0)" }}>
                   {report.patient.split(" ").map(n => n[0]).join("").slice(0,2)}
                 </div>
                 <div>
@@ -219,7 +219,7 @@ function ReportModal({ report, onClose }) {
 
           <div className="flex gap-3">
             <button className="flex-1 py-3 rounded-xl text-white text-sm font-semibold shadow-lg transition hover:opacity-90"
-              style={{ background: "linear-gradient(135deg, #006064, #00838F)" }}>
+              style={{ background: "linear-gradient(135deg, #0D47A1, #1565C0)" }}>
               🖨️ Print Report
             </button>
             <button className="px-5 py-3 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition flex items-center gap-1.5">
@@ -268,8 +268,8 @@ export default function LabReports() {
         {/* Stats */}
         <div className="grid grid-cols-4 gap-4">
           {[
-            { label: "Total Reports", value: ALL_REPORTS.length, color: "#006064", bg: "#E0F2F1" },
-            { label: "Uploaded", value: ALL_REPORTS.filter(r => r.status === "Uploaded").length, color: "#00897B", bg: "#E0F2F1" },
+            { label: "Total Reports", value: ALL_REPORTS.length, color: "#0D47A1", bg: "#E3F2FD" },
+            { label: "Uploaded", value: ALL_REPORTS.filter(r => r.status === "Uploaded").length, color: "#1565C0", bg: "#E3F2FD" },
             { label: "Pending Upload", value: ALL_REPORTS.filter(r => r.status === "Pending Upload").length, color: "#E65100", bg: "#FFF3E0" },
             { label: "With Abnormal Values", value: ALL_REPORTS.filter(r => r.flagged).length, color: "#B71C1C", bg: "#FFEBEE" },
           ].map(s => (
@@ -288,7 +288,7 @@ export default function LabReports() {
             </svg>
             <input type="text" placeholder="Search patient, ID, or test name..."
               value={search} onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 transition" />
+              className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
           </div>
 
           <div className="flex gap-2">
@@ -297,7 +297,7 @@ export default function LabReports() {
                 className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
                   statusFilter === f ? "text-white shadow-md" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
-                style={statusFilter === f ? { background: "linear-gradient(135deg, #006064, #00838F)" } : {}}>
+                style={statusFilter === f ? { background: "linear-gradient(135deg, #0D47A1, #1565C0)" } : {}}>
                 {f}
               </button>
             ))}
@@ -322,7 +322,7 @@ export default function LabReports() {
               <div className="flex items-center gap-4 px-6 py-4">
                 {/* Avatar */}
                 <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                  style={{ background: "linear-gradient(135deg, #006064, #00838F)" }}>
+                  style={{ background: "linear-gradient(135deg, #0D47A1, #1565C0)" }}>
                   {report.patient.split(" ").map(n => n[0]).join("").slice(0,2)}
                 </div>
 
@@ -331,14 +331,14 @@ export default function LabReports() {
                   <div className="flex items-center gap-2 flex-wrap mb-1">
                     <span className="text-sm font-semibold text-gray-800">{report.patient}</span>
                     <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Age {report.age}</span>
-                    <span className="font-mono text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full">Ch. #{report.channeling}</span>
+                    <span className="font-mono text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">Ch. #{report.channeling}</span>
                     {report.flagged && (
                       <span className="text-xs bg-red-100 text-red-600 font-bold px-2 py-0.5 rounded-full border border-red-200">⚠️ Abnormal</span>
                     )}
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {report.tests.map(t => (
-                      <span key={t} className="text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full">{t}</span>
+                      <span key={t} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{t}</span>
                     ))}
                   </div>
                   <div className="text-xs text-gray-400 mt-1">{report.completedAt} · {report.id}</div>
@@ -356,7 +356,7 @@ export default function LabReports() {
 
                   {report.status === "Uploaded" ? (
                     <button onClick={() => setSelectedReport(report)}
-                      className="text-xs font-semibold text-teal-600 hover:underline">
+                      className="text-xs font-semibold text-blue-600 hover:underline">
                       View Report →
                     </button>
                   ) : (

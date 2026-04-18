@@ -10,10 +10,11 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
 
 const NAV_LINKS = [
   { label: "Home",       href: "#home"     },
-  { label: "About",      href: "#about"    },
-  { label: "Services",   href: "#services" },
-  { label: "Our Doctor", href: "#doctor"   },
-  { label: "Contact",    href: "#contact"  },
+  { label: "About",      href: "#about"        },
+  { label: "Services",   href: "#services"     },
+  { label: "Our Doctor", href: "#doctor"       },
+  { label: "Testimonials", href: "#testimonials" },
+  { label: "Contact",    href: "#contact"      },
 ];
 
 const SERVICES = [
@@ -59,12 +60,7 @@ const SERVICES = [
   },
 ];
 
-const STATS = [
-  { number: "5000+", label: "Patients Treated" },
-  { number: "15+",   label: "Years of Experience" },
-  { number: "98%",   label: "Patient Satisfaction" },
-  { number: "24/7",  label: "Emergency Support" },
-];
+// STATS is now built dynamically inside the component using live doctorExp
 
 // ── Slideshow slides ──────────────────────────────────────────
 const SLIDES = [
@@ -185,9 +181,10 @@ function Slideshow({ dark = false }) {
 }
 
 export default function Index() {
-  const [scrolled, setScrolled]   = useState(false);
-  const [menuOpen, setMenuOpen]   = useState(false);
-  const [doctor, setDoctor]       = useState(null);
+  const [scrolled, setScrolled]         = useState(false);
+  const [menuOpen, setMenuOpen]         = useState(false);
+  const [doctor, setDoctor]             = useState(null);
+  const [testimonials, setTestimonials] = useState([]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
@@ -202,10 +199,50 @@ export default function Index() {
       .catch(() => {}); // silently fall back to static data
   }, []);
 
+  // Fetch top-rated feedback for testimonials section
+  useEffect(() => {
+    axios.get(`${API}/feedback/public/top?limit=20`)
+      .then(res => {
+        const all = res.data.feedbacks || [];
+        const top = all
+          .filter(fb => fb.rating >= 4 && fb.description && fb.description.trim().length >= 20)
+          .sort((a, b) => b.rating - a.rating)
+          .slice(0, 6);
+        setTestimonials(top);
+      })
+      .catch(() => {});
+  }, []);
+
   const doctorName = doctor?.name || "Dr. M.T.D. Jayaweera";
   const doctorExp  = doctor?.doctorDetails?.workingExperience || "15+";
   const doctorPhone = doctor?.telephone || "0777 883 343";
   const doctorPhoto = doctor?.photo || null;
+
+  // Dynamic stats using live doctor experience
+  const STATS = [
+    { number: "5000+", label: "Patients Treated" },
+    { number: doctorExp.toString().includes("+") ? doctorExp : `${doctorExp}+`, label: "Years of Experience" },
+    { number: "98%",   label: "Patient Satisfaction" },
+    { number: "24/7",  label: "Emergency Support" },
+  ];
+
+  // Clinic session status
+  // Morning: 7:00 - 8:00 | Evening: 17:00 - 20:00
+  const getClinicStatus = () => {
+    const now = new Date();
+    const h = now.getHours();
+    const m = now.getMinutes();
+    const total = h * 60 + m;
+    const morningStart = 7 * 60, morningEnd = 8 * 60;
+    const eveningStart = 17 * 60, eveningEnd = 20 * 60;
+    if (total >= morningStart && total < morningEnd) return { open: true, label: "Open Now", sub: "Morning Session" };
+    if (total >= eveningStart && total < eveningEnd) return { open: true, label: "Open Now", sub: "Evening Session" };
+    // Next session
+    if (total < morningStart) return { open: false, label: "Opens at 7:00 AM", sub: "Morning Session" };
+    if (total >= morningEnd && total < eveningStart) return { open: false, label: "Opens at 5:00 PM", sub: "Evening Session" };
+    return { open: false, label: "Opens Tomorrow 7 AM", sub: "Morning Session" };
+  };
+  const clinicStatus = getClinicStatus();
 
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif" }} className="bg-white text-gray-800">
@@ -214,10 +251,8 @@ export default function Index() {
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? "bg-white shadow-lg py-3" : "bg-transparent py-5"}`}>
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" className="w-5 h-5">
-                <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0016.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 002 8.5c0 2.3 1.5 4.05 3 5.5l7 7z"/>
-              </svg>
+            <div className="w-10 h-10 rounded-xl flex-shrink-0 overflow-hidden">
+              <img src="/Logo.png" alt="PHC" className="w-full h-full object-contain" />
             </div>
             <div>
               <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, color: scrolled ? "#0D2137" : "white", fontSize: "1.1rem", lineHeight: 1 }}>
@@ -315,7 +350,7 @@ export default function Index() {
               </a>
             </div>
             <div className="mt-10 flex flex-wrap gap-3">
-              {["Mon – Sat: 7AM – 7:45AM 4:30PM - 8PM", "Emergency: 24/7", "Matara, Sri Lanka"].map(item => (
+              {["Mon – Sat: 7:00AM – 8:00AM  |  5:00PM – 8:00PM", "Emergency: 24/7", "Matara, Sri Lanka"].map(item => (
                 <div key={item} className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-1.5">
                   <div className="w-1.5 h-1.5 rounded-full bg-cyan-300"/>
                   <span className="text-white/80 text-xs">{item}</span>
@@ -336,8 +371,8 @@ export default function Index() {
                   ))}
                 </div>
                 <div className="mt-6 p-4 bg-white/10 rounded-2xl border border-white/10 flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #00ACC1, #1565C0)" }}>
-                    <svg viewBox="0 0 24 24" fill="white" className="w-6 h-6"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                  <div className="w-12 h-12 rounded-xl flex-shrink-0 overflow-hidden">
+                    <img src="/Logo.png" alt="PHC" className="w-full h-full object-contain" />
                   </div>
                   <div>
                     <div className="text-white font-semibold text-sm">People's Health Care</div>
@@ -345,8 +380,9 @@ export default function Index() {
                   </div>
                 </div>
               </div>
-              <div className="absolute -top-4 -right-4 bg-green-400 text-green-900 text-xs font-bold px-4 py-2 rounded-full shadow-lg flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-green-700 animate-pulse"/>Open Now
+              <div className={`absolute -top-4 -right-4 text-xs font-bold px-4 py-2 rounded-full shadow-lg flex items-center gap-1.5 ${clinicStatus.open ? "bg-green-400 text-green-900" : "bg-orange-400 text-orange-900"}`}>
+                <div className={`w-2 h-2 rounded-full animate-pulse ${clinicStatus.open ? "bg-green-700" : "bg-orange-700"}`}/>
+                {clinicStatus.label}
               </div>
             </div>
           </div>
@@ -482,7 +518,7 @@ export default function Index() {
             </p>
             <div className="space-y-4">
               {[
-                { label: "Consultation Hours", value: "Mon – Sat: 8:00 AM – 7:00 PM" },
+                { label: "Consultation Hours", value: "Mon – Sat: 7:00 AM – 8:00 AM  |  5:00 PM – 8:00 PM" },
                 { label: "Location",           value: "Matara, Southern Province, Sri Lanka" },
                 { label: "Contact",            value: "thilakjayaweera9@gmail.com" },
               ].map(item => (
@@ -511,6 +547,87 @@ export default function Index() {
         </div>
       </section>
 
+      {/* ── TESTIMONIALS ── */}
+      {testimonials.length > 0 && (
+        <section id="testimonials" className="py-24 bg-white">
+          <div className="max-w-7xl mx-auto px-6">
+
+            {/* Header */}
+            <div className="text-center mb-14">
+              <p className="text-sm font-semibold tracking-widest uppercase mb-3" style={{ color: "#00ACC1" }}>
+                Patient Stories
+              </p>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "clamp(1.8rem, 3vw, 2.6rem)", color: "#0D2137" }}>
+                What Our Patients Say
+              </h2>
+              <p className="mt-4 text-gray-500 max-w-xl mx-auto text-sm leading-relaxed">
+                Real experiences from patients who trust People's Health Care for their wellbeing.
+              </p>
+              <div className="flex items-center justify-center gap-1 mt-4">
+                {[1,2,3,4,5].map(i => (
+                  <svg key={i} viewBox="0 0 20 20" fill="#F59E0B" className="w-5 h-5">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                  </svg>
+                ))}
+                <span className="ml-2 text-sm font-semibold text-gray-600">{testimonials.length} patient reviews</span>
+              </div>
+            </div>
+
+            {/* Cards grid */}
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {testimonials.map((fb, i) => {
+                const date = fb.createdAt
+                  ? new Date(fb.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+                  : "";
+                return (
+                  <div key={fb._id || i}
+                    className="relative bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col group"
+                    style={{ border: "1px solid #e5e7eb", borderTop: "3px solid #1565C0" }}
+                  >
+                    {/* Big quote mark */}
+                    <div className="absolute top-4 right-5 text-6xl font-serif leading-none select-none"
+                      style={{ color: "#EFF6FF" }}>"</div>
+
+                    {/* Stars */}
+                    <div className="flex gap-0.5 mb-4">
+                      {[1,2,3,4,5].map(s => (
+                        <svg key={s} viewBox="0 0 20 20" fill={s <= fb.rating ? "#F59E0B" : "#E5E7EB"} className="w-4 h-4">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
+                      ))}
+                      <span className="ml-1.5 text-xs font-semibold text-amber-600">{fb.rating}.0</span>
+                    </div>
+
+                    {/* Review text */}
+                    <p className="text-gray-600 text-sm leading-relaxed flex-1 mb-6 relative z-10 italic">
+                      "{fb.description}"
+                    </p>
+
+                    {/* Patient footer */}
+                    <div className="flex items-center pt-4 border-t border-gray-100">
+                      <div className="text-xs text-gray-400">{date}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* CTA */}
+            <div className="text-center mt-14">
+              <p className="text-sm text-gray-400 mb-5">Join thousands of satisfied patients at People's Health Care</p>
+              <a href="/login"
+                className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl text-white text-sm font-semibold shadow-lg hover:opacity-90 transition"
+                style={{ background: "linear-gradient(135deg, #0D2137, #1565C0)" }}>
+                Book Your Appointment
+                <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                  <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd"/>
+                </svg>
+              </a>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── CONTACT / APPOINTMENT ── */}
       <section id="contact" className="py-24 relative overflow-hidden"
         style={{ background: "linear-gradient(135deg, #0D2137 0%, #1565C0 100%)" }}>
@@ -537,7 +654,7 @@ export default function Index() {
                   { icon: "📍", label: "Address", value: "People's Health Care, Matara, Sri Lanka" },
                   { icon: "📞", label: "Phone",   value: doctorPhone },
                   { icon: "📧", label: "Email",   value: "thilakjayaweera9@gmail.com" },
-                  { icon: "🕐", label: "Hours",   value: "Mon – Sat: 8:00 AM – 7:00 PM" },
+                  { icon: "🕐", label: "Hours",   value: "Mon – Sat: 7:00 AM – 8:00 AM  |  5:00 PM – 8:00 PM" },
                 ].map(item => (
                   <div key={item.label} className="flex items-start gap-4">
                     <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-lg flex-shrink-0">{item.icon}</div>
@@ -604,7 +721,13 @@ export default function Index() {
                 <div>📞 {doctorPhone}</div>
                 <div>✉️ thilakjayaweera9@gmail.com</div>
                 <div>📍 Matara, Sri Lanka</div>
-                <div>🕐 Mon–Sat: 8AM–7PM</div>
+                <div className="flex items-start gap-1">
+                  <span>🕐</span>
+                  <div>
+                    <div>Mon–Sat: 7:00AM–8:00AM</div>
+                    <div className="pl-12">5:00PM–8:00PM</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
