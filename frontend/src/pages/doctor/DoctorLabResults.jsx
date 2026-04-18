@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import DoctorLayout from "../../components/DoctorLayout";
 import api from "../../services/api";
 
 // ─── PDF Generator ─────────────────────────────────────────────────────────
@@ -244,14 +243,20 @@ export default function DoctorLabResults() {
 
   useEffect(()=>{ fetchResults(); },[statusFilter]);
 
-  const fetchResults = async () => {
-    setLoading(true);
+  // ── Auto-refresh every 30 seconds ────────────────────────────
+  useEffect(() => {
+    const interval = setInterval(() => fetchResults(true), 5_000);
+    return () => clearInterval(interval);
+  }, [statusFilter]);
+
+  const fetchResults = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const query = statusFilter==="all" ? "" : `?status=${statusFilter}`;
       const res = await api.get(`/lab-results${query}`);
       setResults(res.data.results||[]);
     } catch { setError("Failed to load lab results."); }
-    finally { setLoading(false); }
+    finally { if (!silent) setLoading(false); }
   };
 
   const isFlagged = r => r.results?.parameters?.some(p=>["High","Low","Positive","Reactive"].includes(p.flag));
@@ -273,7 +278,7 @@ export default function DoctorLabResults() {
   const pendingCount   = results.filter(r=>r.status!=="completed").length;
 
   return (
-    <DoctorLayout activePage="Lab Results">
+  <>
       {selectedResult && <ResultModal result={selectedResult} onClose={()=>setSelectedResult(null)} navigate={navigate}/>}
 
       <div className="p-6 space-y-5">
@@ -414,6 +419,6 @@ export default function DoctorLabResults() {
           </div>
         )}
       </div>
-    </DoctorLayout>
+  </>
   );
 }

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import DoctorLayout from "../../components/DoctorLayout";
 import api from "../../services/api";
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -63,16 +62,15 @@ function getSessionPhase(startHHMM, endHHMM) {
 }
 
 // ── Auto-detect which tab should be active ─────────────────────
-// Rules:
-//   • During morning session (07:00–08:00)  → Morning tab
-//   • After morning ends, before evening starts → Evening tab  (jump ahead)
-//   • During evening session (17:00–20:00)  → Evening tab
-//   • After evening ends → Evening tab (keep on last session)
-function detectActiveSession(morningStart, morningEnd, eveningStart) {
+// Skips holiday sessions — if morning is a holiday, jump straight to Evening
+function detectActiveSession(morningStart, morningEnd, eveningStart, morningHoliday = false, eveningHoliday = false) {
   const now = nowMins();
-  // Still within morning window or before morning starts → Morning
+  // If morning is a holiday, always show Evening
+  if (morningHoliday) return "Evening";
+  // If evening is a holiday, always show Morning
+  if (eveningHoliday) return "Morning";
+  // Normal time-based logic
   if (now < toMins(morningEnd)) return "Morning";
-  // Morning ended or evening started / ongoing → Evening
   return "Evening";
 }
 
@@ -198,10 +196,14 @@ export default function DoctorDashboard() {
   // ── Active session tab ─────────────────────────────────────
   const [activeSession, setActiveSession] = useState(null);
 
+  // ── Holiday flags for today's sessions ───────────────────
+  const [morningHoliday, setMorningHoliday] = useState(false);
+  const [eveningHoliday, setEveningHoliday] = useState(false);
+
   // ── Clock tick — re-evaluate session phase every minute ───
   const [tick, setTick] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 60_000);
+    const id = setInterval(() => setTick(t => t + 1), 1_000);
     return () => clearInterval(id);
   }, []);
 
@@ -212,10 +214,10 @@ export default function DoctorDashboard() {
   useEffect(() => {
     if (!morningStart || !morningEnd || !eveningStart) return;
     if (manualTabOverride) return;
-    const suggested = detectActiveSession(morningStart, morningEnd, eveningStart);
+    const suggested = detectActiveSession(morningStart, morningEnd, eveningStart, morningHoliday, eveningHoliday);
     setActiveSession(suggested);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tick, morningStart, morningEnd, eveningStart]);
+  }, [tick, morningStart, morningEnd, eveningStart, morningHoliday, eveningHoliday]);
 
   // Manual tab click — doctor picks a tab explicitly
   const handleTabClick = (key) => {
@@ -245,13 +247,20 @@ export default function DoctorDashboard() {
   };
 
   // ── Fetch session config ──────────────────────────────────
-  const loadSessionConfig = useCallback(async () => {
+  const loadSessionConfig = useCallback(async (silent = false) => {
     try {
       const today = new Date().toISOString().split("T")[0];
       const [mRes, eRes] = await Promise.allSettled([
         api.get(`/appointments/session-info?date=${today}&session=Morning`),
         api.get(`/appointments/session-info?date=${today}&session=Evening`),
       ]);
+
+      // Fulfilled = session is open; rejected/400 = holiday/blocked
+      const mIsHoliday = mRes.status !== "fulfilled";
+      const eIsHoliday = eRes.status !== "fulfilled";
+      setMorningHoliday(mIsHoliday);
+      setEveningHoliday(eIsHoliday);
+
       const mStart = mRes.status === "fulfilled" ? mRes.value.data?.data?.startTime || "07:00" : "07:00";
       const eStart = eRes.status === "fulfilled" ? eRes.value.data?.data?.startTime || "17:00" : "17:00";
       setMorningStart(mStart);
@@ -260,7 +269,7 @@ export default function DoctorDashboard() {
   }, []);
 
   // ── Fetch today's appointments ────────────────────────────
-  const loadAppointments = useCallback(async () => {
+  const loadAppointments = useCallback(async (silent = false) => {
     try {
       const res = await api.get("/appointments/today");
       const appts = res.data.appointments || [];
@@ -276,17 +285,17 @@ export default function DoctorDashboard() {
     } catch {
       showToast("Failed to load today's schedule", "error");
     } finally {
-      setLoadingAppts(false);
+      if (!silent) setLoadingAppts(false);
     }
   }, []);
 
   // ── Fetch recent prescriptions ────────────────────────────
-  const loadRecentRx = useCallback(async () => {
+  const loadRecentRx = useCallback(async (silent = false) => {
     try {
       const res = await api.get("/prescriptions?recent=true&limit=8");
       setRecentRx(res.data.prescriptions || []);
     } catch { /* silently ignore */ }
-    finally { setLoadingRx(false); }
+    finally { if (!silent) setLoadingRx(false); }
   }, []);
 
   // ── Fetch lab pending count ───────────────────────────────
@@ -298,8 +307,8 @@ export default function DoctorDashboard() {
   }, []);
 
   // ── Fetch lab alerts — completed results in last 30 mins ─────
-  const loadLabAlerts = useCallback(async () => {
-    setLoadingAlerts(true);
+  const loadLabAlerts = useCallback(async (silent = false) => {
+    if (!silent) setLoadingAlerts(true);
     try {
       const res = await api.get("/lab-results?status=completed&limit=50");
       const results = res.data.results || [];
@@ -316,7 +325,7 @@ export default function DoctorDashboard() {
         }))
       );
     } catch { /* keep empty */ }
-    finally { setLoadingAlerts(false); }
+    finally { if (!silent) setLoadingAlerts(false); }
   }, []);
 
   // ── Fetch this-month prescription count ───────────────────
@@ -345,11 +354,15 @@ export default function DoctorDashboard() {
   // ── Auto-refresh every 30 seconds ─────────────────────────
   useEffect(() => {
     const interval = setInterval(() => {
-      loadAppointments();
-      loadRecentRx();
-    }, 30_000);
+      loadAppointments(true);
+      loadRecentRx(true);
+      loadLabStats(true);
+      loadLabAlerts(true);
+      loadMonthlyRx(true);
+      loadSessionConfig(true);
+    }, 5_000);
     return () => clearInterval(interval);
-  }, [loadAppointments, loadRecentRx]);
+  }, [loadAppointments, loadRecentRx, loadLabStats, loadLabAlerts, loadMonthlyRx]);
 
   // ── Filtered list by selected session tab ─────────────────
   const sessionAppointments = activeSession
@@ -377,7 +390,7 @@ export default function DoctorDashboard() {
       appointmentId: appt.appointmentId,
       patientName:   appt.patientName,
       patientId:     appt.patientId || "",
-      channelingNo:  appt.channelingNo || "",
+
     }).toString();
 
   // ── START: Pending → In Progress, then open Rx form ───────
@@ -451,29 +464,32 @@ export default function DoctorDashboard() {
       key:       "Morning",
       label:     "Morning Session",
       timeRange: `${fmtSessionTime(morningStart)} – ${fmtSessionTime(morningEnd)}`,
-      phase:     morningPhase,
+      phase:     morningHoliday ? "holiday" : morningPhase,
       countdown: morningCountdown,
       remaining: morningRemaining,
       count:     morningAppts.length,
       sunIcon:   true,
+      isHoliday: morningHoliday,
     },
     {
       key:       "Evening",
       label:     "Evening Session",
       timeRange: `${fmtSessionTime(eveningStart)} – ${fmtSessionTime(eveningEnd)}`,
-      phase:     eveningPhase,
+      phase:     eveningHoliday ? "holiday" : eveningPhase,
       countdown: eveningCountdown,
       remaining: eveningRemaining,
       count:     eveningAppts.length,
       sunIcon:   false,
+      isHoliday: eveningHoliday,
     },
   ];
 
   // Phase label config
   const PHASE_BADGE = {
-    before: { text: "Upcoming",  cls: "bg-amber-50 text-amber-600 border border-amber-200"  },
-    live:   { text: "Live Now",  cls: "bg-green-50 text-green-700 border border-green-200"  },
-    ended:  { text: "Ended",     cls: "bg-gray-100 text-gray-500 border border-gray-200"    },
+    before:  { text: "Upcoming",  cls: "bg-amber-50 text-amber-600 border border-amber-200"  },
+    live:    { text: "Live Now",  cls: "bg-green-50 text-green-700 border border-green-200"  },
+    ended:   { text: "Ended",     cls: "bg-gray-100 text-gray-500 border border-gray-200"    },
+    holiday: { text: "Holiday",   cls: "bg-red-50 text-red-500 border border-red-200"         },
   };
 
   // ── Derive the active session's phase for the start button ─
@@ -482,7 +498,7 @@ export default function DoctorDashboard() {
   const activeStart  = activeSession === "Morning" ? morningStart : eveningStart;
 
   return (
-    <DoctorLayout activePage="Dashboard">
+  <>
 
       {/* ── Toast ─────────────────────────────────────────── */}
       {toast && (
@@ -664,18 +680,28 @@ export default function DoctorDashboard() {
               </div>
             )}
 
-            {activePhase === "ended" && (
-              <div className="flex items-center gap-3 px-6 py-3 bg-gray-50 border-b border-gray-100">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 text-gray-400 flex-shrink-0">
-                  <circle cx="12" cy="12" r="10"/>
-                  <polyline points="12 6 12 12 16 14"/>
-                </svg>
-                <span className="text-xs text-gray-500 font-medium">
-                  {activeSession} session ended at <strong>{fmtSessionTime(activeSession === "Morning" ? morningEnd : eveningEnd)}</strong>
-                  . Appointments are shown for reference only.
-                </span>
-              </div>
-            )}
+            {activePhase === "ended" && (() => {
+              const activeSessionRemaining = activeSession === "Morning" ? morningRemaining : eveningRemaining;
+              return (
+                <div className={`flex items-center gap-3 px-6 py-3 border-b ${
+                  activeSessionRemaining > 0
+                    ? "bg-amber-50 border-amber-100"
+                    : "bg-gray-50 border-gray-100"
+                }`}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
+                    className={`w-4 h-4 flex-shrink-0 ${activeSessionRemaining > 0 ? "text-amber-500" : "text-gray-400"}`}>
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  <span className={`text-xs font-medium ${activeSessionRemaining > 0 ? "text-amber-700" : "text-gray-500"}`}>
+                    {activeSession} session ended at <strong>{fmtSessionTime(activeSession === "Morning" ? morningEnd : eveningEnd)}</strong>
+                    {activeSessionRemaining > 0
+                      ? <> — <strong>{activeSessionRemaining} patient{activeSessionRemaining !== 1 ? "s" : ""} still in queue</strong>. Continuing until queue is clear.</>
+                      : ". All patients seen."}
+                  </span>
+                </div>
+              );
+            })()}
 
             {/* Appointments list */}
             {loadingAppts ? (
@@ -720,12 +746,17 @@ export default function DoctorDashboard() {
                   const isStarting   = startingId === appt._id;
                   const isInProgress = appt.status === "In Progress";
 
-                  // Determine if the Start button should be locked and why
-                  const sessionLocked = activePhase !== "live"; // locked when session hasn't started or has ended
+                  // Determine if the Start button should be locked and why.
+                  // If the session has ended but patients are still in the queue,
+                  // keep Start unlocked so the doctor can finish the queue.
+                  const activeSessionRemaining = activeSession === "Morning" ? morningRemaining : eveningRemaining;
+                  const sessionLocked =
+                    activePhase === "before" ||
+                    (activePhase === "ended" && activeSessionRemaining === 0);
                   const lockReason    =
                     activePhase === "before"
                       ? `Session starts at ${fmtSessionTime(activeStart)}${activeCountdown ? ` (in ${activeCountdown})` : ""}`
-                      : activePhase === "ended"
+                      : activePhase === "ended" && activeSessionRemaining === 0
                       ? "Session has ended"
                       : null;
 
@@ -743,13 +774,13 @@ export default function DoctorDashboard() {
                         {appt.estimatedTime || "—"}
                       </div>
 
-                      {/* Channeling badge */}
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0 border ${
+                      {/* Appointment ID badge */}
+                      <div className={`px-2 py-1 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0 border font-mono ${
                         isInProgress
                           ? "bg-blue-100 text-blue-700 border-blue-200"
                           : "bg-blue-50 text-blue-700 border-blue-100"
                       }`}>
-                        {appt.channelingNo || "?"}
+                        {appt.appointmentId?.split("-").pop() || "—"}
                       </div>
 
                       {/* Patient info */}
@@ -1055,6 +1086,6 @@ export default function DoctorDashboard() {
           </div>
         </div>
       </div>
-    </DoctorLayout>
+  </>
   );
 }

@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from "react";
-import DoctorLayout from "../../components/DoctorLayout";
 import api from "../../services/api";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -189,8 +188,11 @@ async function generatePDF(data, doctorName, year, month, allRx) {
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   doc.text(`People's Health Care · ${monthLabel} ${year}`, marginL + 26, 23);
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.text("No 123 Matara - Akuressa Hwy, Matara", marginL + 26, 29);
   doc.setFontSize(8.5);
-  doc.text(`Prepared by: Dr. ${doctorName}`, marginL + 26, 30);
+  doc.text(`Prepared by: Dr. ${doctorName}`, marginL + 26, 35);
 
   // Generated date — top right
   doc.setFontSize(7.5);
@@ -538,15 +540,21 @@ export default function DoctorMedicineAnalysis() {
   // Available years (current year ± 3)
   const years = Array.from({ length: 4 }, (_, i) => now.getFullYear() - 3 + i + 1);
 
+  const loadRx = async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const res = await api.get("/prescriptions?limit=2000");
+      setAllRx(res.data.prescriptions || []);
+    } catch { setAllRx([]); }
+    finally { if (!silent) setLoading(false); }
+  };
+
+  useEffect(() => { loadRx(); }, []);
+
+  // ── Auto-refresh every 5 seconds (silent — no flicker) ───────
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await api.get("/prescriptions?limit=2000");
-        setAllRx(res.data.prescriptions || []);
-      } catch { setAllRx([]); }
-      finally  { setLoading(false); }
-    })();
+    const interval = setInterval(() => loadRx(true), 5_000);
+    return () => clearInterval(interval);
   }, []);
 
   const data = useMemo(() => analyseRx(allRx, selYear, selMonth), [allRx, selYear, selMonth]);
@@ -587,7 +595,6 @@ export default function DoctorMedicineAnalysis() {
     : 0;
 
   return (
-    <DoctorLayout activePage="Medicine Analysis">
       <div className="p-6 space-y-6">
 
         {/* Header */}
@@ -899,6 +906,5 @@ export default function DoctorMedicineAnalysis() {
           </>
         )}
       </div>
-    </DoctorLayout>
   );
 }

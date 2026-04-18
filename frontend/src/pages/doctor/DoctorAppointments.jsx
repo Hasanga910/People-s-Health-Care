@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import DoctorLayout from "../../components/DoctorLayout";
 import api from "../../services/api";
 
 const DAYS   = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -20,7 +19,7 @@ function getInitials(name = "") {
 function normalise(appt) {
   return {
     id:         appt._id,
-    channeling: appt.channelingNo  ?? "—",
+    apptId:    appt.appointmentId || appt._id,
     patient:    appt.patientName   ?? "Unknown",
     date:       appt.date,
     time:       appt.estimatedTime ?? "—",
@@ -41,7 +40,23 @@ function getHolidayIcon(h) {
 function AppointmentDetailModal({ appt, onClose, onStatusChange, onNavigate }) {
   if (!appt) return null;
   const statusStyle = STATUS_COLORS[appt.status] ?? STATUS_COLORS.Pending;
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]         = useState(false);
+  const [prescription, setPrescription] = useState(null);
+  const [labRequest, setLabRequest]     = useState(null);
+  const [loadingRx, setLoadingRx]       = useState(false);
+
+  // Fetch linked prescription & lab request when modal opens
+  useEffect(() => {
+    if (!appt.apptId) return;
+    setLoadingRx(true);
+    Promise.all([
+      api.get(`/prescriptions?appointmentId=${appt.apptId}&limit=1`).catch(() => null),
+      api.get(`/lab-requests?appointmentNumber=${appt.apptId}&limit=1`).catch(() => null),
+    ]).then(([rxRes, lrRes]) => {
+      setPrescription(rxRes?.data?.prescriptions?.[0] ?? null);
+      setLabRequest(lrRes?.data?.labRequests?.[0] ?? null);
+    }).finally(() => setLoadingRx(false));
+  }, [appt.apptId]);
 
   const handleStart = async () => {
     setLoading(true);
@@ -59,15 +74,32 @@ function AppointmentDetailModal({ appt, onClose, onStatusChange, onNavigate }) {
     onClose();
   };
 
+  // Pharmacy status pill colours
+  const RX_PILL = {
+    pending:     "bg-amber-50 text-amber-700 border-amber-200",
+    in_progress: "bg-blue-50 text-blue-700 border-blue-200",
+    dispensed:   "bg-green-50 text-green-700 border-green-200",
+    cancelled:   "bg-gray-100 text-gray-500 border-gray-200",
+  };
+  const LR_PILL = {
+    pending:     "bg-amber-50 text-amber-700 border-amber-200",
+    in_progress: "bg-blue-50 text-blue-700 border-blue-200",
+    completed:   "bg-green-50 text-green-700 border-green-200",
+  };
+
+  const isPending = appt.status === "Pending";
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden">
+
+        {/* Header */}
         <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between"
           style={{ background: "linear-gradient(135deg, #0D2137, #1565C0)" }}>
           <div>
             <p className="text-white/60 text-xs">Appointment Details</p>
             <h3 className="text-white font-bold text-lg" style={{ fontFamily: "'Playfair Display', serif" }}>
-              Channeling #{appt.channeling}
+              Appointment #{appt.apptId}
             </h3>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition">
@@ -77,9 +109,11 @@ function AppointmentDetailModal({ appt, onClose, onStatusChange, onNavigate }) {
           </button>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+
+          {/* Patient card */}
           <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-lg font-bold text-white"
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-lg font-bold text-white flex-shrink-0"
               style={{ background: "linear-gradient(135deg, #1565C0, #00ACC1)" }}>
               {getInitials(appt.patient)}
             </div>
@@ -94,20 +128,154 @@ function AppointmentDetailModal({ appt, onClose, onStatusChange, onNavigate }) {
             </div>
           </div>
 
+          {/* Info grid */}
           <div className="grid grid-cols-2 gap-4">
             {[
-              { label: "Date",           value: appt.date,          icon: "📅" },
-              { label: "Est. Time",      value: appt.time,          icon: "🕐" },
-              { label: "Session",        value: appt.session,       icon: "📋" },
-              { label: "Channeling No.", value: `#${appt.channeling}`, icon: "🔢" },
+              {
+                label: "Date", value: appt.date,
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5 text-blue-500">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
+                  </svg>
+                ),
+              },
+              {
+                label: "Est. Time", value: appt.time,
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5 text-blue-500">
+                    <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+                  </svg>
+                ),
+              },
+              {
+                label: "Session", value: appt.session,
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5 text-blue-500">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+                  </svg>
+                ),
+              },
+              {
+                label: "Appointment ID", value: appt.apptId,
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5 text-blue-500">
+                    <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H8a2 2 0 00-2 2v2h12V5a2 2 0 00-2-2z"/>
+                    <line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/>
+                  </svg>
+                ),
+              },
             ].map((item) => (
               <div key={item.label} className="bg-gray-50 rounded-xl p-3">
-                <div className="text-xs text-gray-400 mb-1">{item.icon} {item.label}</div>
+                <div className="flex items-center gap-1.5 text-gray-400 mb-1">
+                  {item.icon}
+                  <span className="text-xs">{item.label}</span>
+                </div>
                 <div className="text-sm font-semibold text-gray-800">{item.value}</div>
               </div>
             ))}
           </div>
 
+          {/* ── Medical Records Section ─────────────────────────────── */}
+          <div className="border border-gray-100 rounded-2xl overflow-hidden">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 text-blue-600">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
+              </svg>
+              <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Medical Records</span>
+              {loadingRx && (
+                <svg className="w-3.5 h-3.5 animate-spin text-blue-400 ml-auto" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+              )}
+            </div>
+
+            <div className="divide-y divide-gray-50">
+
+              {/* Prescription row */}
+              <div className="flex items-center justify-between px-4 py-3.5 gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 text-blue-600">
+                      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                      <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+                    </svg>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs text-gray-400 mb-0.5">Prescription</div>
+                    {isPending ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block"/>
+                        Pending — not yet issued
+                      </span>
+                    ) : loadingRx ? (
+                      <div className="w-28 h-3.5 bg-gray-100 rounded animate-pulse"/>
+                    ) : prescription ? (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-sm font-bold text-blue-700">{prescription.prescriptionId}</span>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${RX_PILL[prescription.pharmacyStatus] ?? RX_PILL.pending}`}>
+                          {prescription.pharmacyStatus?.replace("_", " ")}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400 italic">No prescription issued</span>
+                    )}
+                  </div>
+                </div>
+                {!isPending && prescription && (
+                  <a href={`/doctor/prescriptions?open=${prescription.prescriptionId}`}
+                    className="flex-shrink-0 text-xs text-blue-600 font-semibold hover:underline whitespace-nowrap">
+                    View →
+                  </a>
+                )}
+              </div>
+
+              {/* Lab Request row */}
+              <div className="flex items-center justify-between px-4 py-3.5 gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 text-teal-600">
+                      <path d="M6 2v6l-4 8a2 2 0 001.8 3h12.4A2 2 0 0018 16l-4-8V2"/>
+                      <line x1="6" y1="2" x2="18" y2="2"/>
+                    </svg>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs text-gray-400 mb-0.5">Lab Request</div>
+                    {isPending ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block"/>
+                        Pending — not yet requested
+                      </span>
+                    ) : loadingRx ? (
+                      <div className="w-28 h-3.5 bg-gray-100 rounded animate-pulse"/>
+                    ) : labRequest ? (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-sm font-bold text-teal-700">{labRequest.labRequestId}</span>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${LR_PILL[labRequest.status] ?? LR_PILL.pending}`}>
+                          {labRequest.status?.replace("_", " ")}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400 italic">No lab tests requested</span>
+                    )}
+                  </div>
+                </div>
+                {!isPending && labRequest && (
+                  <a href={`/doctor/lab-requests?open=${labRequest.labRequestId}`}
+                    className="flex-shrink-0 text-xs text-teal-600 font-semibold hover:underline whitespace-nowrap">
+                    View →
+                  </a>
+                )}
+              </div>
+
+            </div>
+          </div>
+
+          {/* Action buttons */}
           <div className="flex gap-3">
             {appt.status === "Pending" && (
               <button disabled={loading} onClick={handleStart}
@@ -141,13 +309,44 @@ function AppointmentDetailModal({ appt, onClose, onStatusChange, onNavigate }) {
 // Handles: public holidays (full day), poya days (full day), and
 // session-specific unavailability (Morning only / Evening only)
 function UnavailabilityManagerModal({ holidays, onClose, onRefresh }) {
-  const [list, setList]         = useState([...holidays]);
-  const [newDate, setNewDate]   = useState("");
+  const [list, setList]           = useState([...holidays]);
+  const [newDate, setNewDate]     = useState(new Date().toISOString().split("T")[0]);
   const [newReason, setNewReason] = useState("");
   const [newSession, setNewSession] = useState("Both");
-  const [newType, setNewType]   = useState("unavailable"); // 'holiday' | 'unavailable'
-  const [error, setError]       = useState("");
-  const [saving, setSaving]     = useState(false);
+  const [newType, setNewType]     = useState("unavailable"); // 'holiday' | 'unavailable'
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [error, setError]         = useState("");
+  const [saving, setSaving]       = useState(false);
+
+  const HOLIDAY_SUGGESTIONS = [
+    "Poya Day",
+    "National Day",
+    "Christmas Day",
+    "New Year's Day",
+    "Sinhala & Tamil New Year",
+    "Eid al-Fitr",
+    "Eid al-Adha",
+    "Deepavali",
+    "Good Friday",
+    "Special Public Holiday",
+  ];
+
+  const UNAVAILABLE_SUGGESTIONS = [
+    "Medical conference",
+    "CME / Training",
+    "Personal leave",
+    "Sick leave",
+    "Emergency",
+    "Annual leave",
+    "Out of station",
+    "Family commitment",
+    "Hospital duty elsewhere",
+  ];
+
+  const suggestions = newType === "holiday" ? HOLIDAY_SUGGESTIONS : UNAVAILABLE_SUGGESTIONS;
+  const filteredSuggestions = newReason.trim()
+    ? suggestions.filter(s => s.toLowerCase().includes(newReason.toLowerCase()))
+    : suggestions;
 
   const sessionLabel = { Both: "Full Day", Morning: "Morning (7:00–8:00 AM)", Evening: "Evening (5:00–8:00 PM)" };
 
@@ -169,7 +368,7 @@ function UnavailabilityManagerModal({ holidays, onClose, onRefresh }) {
       const updated = [...list, { date: saved.date, reason: saved.reason, session: saved.session, type: saved.type }]
         .sort((a, b) => a.date.localeCompare(b.date) || a.session.localeCompare(b.session));
       setList(updated);
-      setNewDate(""); setNewReason(""); setNewSession("Both"); setNewType("unavailable"); setError("");
+      setNewDate(new Date().toISOString().split("T")[0]); setNewReason(""); setNewSession("Both"); setNewType("unavailable"); setShowSuggestions(false); setError("");
     } catch (err) {
       setError(err.response?.data?.message ?? "Failed to add entry.");
     } finally { setSaving(false); }
@@ -228,7 +427,7 @@ function UnavailabilityManagerModal({ holidays, onClose, onRefresh }) {
                 { value: "unavailable", label: "Doctor Unavailable" },
               ].map(opt => (
                 <button key={opt.value}
-                  onClick={() => setNewType(opt.value)}
+                  onClick={() => { setNewType(opt.value); setNewReason(""); setShowSuggestions(false); }}
                   className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold border transition ${
                     newType === opt.value
                       ? "border-blue-500 bg-blue-50 text-blue-700"
@@ -246,14 +445,38 @@ function UnavailabilityManagerModal({ holidays, onClose, onRefresh }) {
               className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
             />
 
-            {/* Reason */}
-            <input
-              type="text"
-              placeholder={newType === "holiday" ? "e.g. Poya Day, National Holiday…" : "e.g. Medical conference, Urgent matter…"}
-              value={newReason}
-              onChange={e => { setNewReason(e.target.value); setError(""); }}
-              className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
-            />
+            {/* Reason — combobox with suggestions */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder={newType === "holiday" ? "e.g. Poya Day, National Holiday…" : "e.g. Medical conference, Urgent matter…"}
+                value={newReason}
+                onChange={e => { setNewReason(e.target.value); setError(""); setShowSuggestions(true); }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              />
+              {/* chevron icon */}
+              <svg viewBox="0 0 20 20" fill="currentColor"
+                className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"/>
+              </svg>
+              {showSuggestions && filteredSuggestions.length > 0 && (
+                <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                  {filteredSuggestions.map(s => (
+                    <button
+                      key={s}
+                      type="button"
+                      onMouseDown={() => { setNewReason(s); setShowSuggestions(false); setError(""); }}
+                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition flex items-center gap-2"
+                    >
+                      <span className="text-xs">{newType === "holiday" ? "🔴" : "⚠️"}</span>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Session selector */}
             <div>
@@ -349,7 +572,7 @@ export default function DoctorAppointments() {
       prefill:       "1",
       appointmentId: appt.id,
       patientName:   appt.patient,
-      channelingNo:  appt.channeling,
+      
     }).toString();
 
   const [appointments, setAppointments]     = useState([]);
@@ -367,29 +590,35 @@ export default function DoctorAppointments() {
 
   const [showUnavailManager, setShowUnavailManager] = useState(false);
 
-  const fetchAppointments = useCallback(async () => {
-    setLoadingAppts(true); setError(null);
+  const fetchAppointments = useCallback(async (date, silent = false) => {
+    if (!silent) { setLoadingAppts(true); setError(null); }
     try {
-      const res = await api.get("/appointments/today");
+      const res = await api.get(`/appointments/today?date=${date}`);
       setAppointments((res.data.appointments ?? []).map(normalise));
     } catch (err) {
       setError(err.response?.data?.message ?? "Failed to load appointments.");
     } finally { setLoadingAppts(false); }
   }, []);
 
-  const fetchHolidays = useCallback(async () => {
-    setLoadingHols(true);
+  const fetchHolidays = useCallback(async (silent = false) => {
+    if (!silent) setLoadingHols(true);
     try {
       const res = await api.get("/appointments/holidays");
       // backend now returns { date, reason, session, type }
       setHolidays(res.data.holidays ?? []);
     } catch (err) {
       console.error("Failed to load holidays:", err);
-    } finally { setLoadingHols(false); }
+    } finally { if (!silent) setLoadingHols(false); }
   }, []);
 
-  useEffect(() => { fetchAppointments(); }, [fetchAppointments]);
+  useEffect(() => { fetchAppointments(selectedDate); }, [fetchAppointments, selectedDate]);
   useEffect(() => { fetchHolidays();     }, [fetchHolidays]);
+
+  // ── Auto-refresh every 30 seconds ────────────────────────────
+  useEffect(() => {
+    const interval = setInterval(() => fetchAppointments(selectedDate, true), 5_000);
+    return () => clearInterval(interval);
+  }, [fetchAppointments, selectedDate]);
 
   const handleStatusChange = (id, newStatus) => {
     setAppointments(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
@@ -414,12 +643,9 @@ export default function DoctorAppointments() {
     return "Evening";                       // 08:00 onwards → evening
   })();
 
-  // For today: only show current session's appointments
-  // For other dates: show all (already blocked by "different date" message)
+  // For any date: show all appointments fetched for that date
   const allDayAppts   = getDayAppointments(selectedDate);
-  const selectedAppts = selectedDate === today
-    ? allDayAppts.filter(a => a.session === currentSession)
-    : allDayAppts;
+  const selectedAppts = allDayAppts;
 
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
@@ -455,7 +681,7 @@ export default function DoctorAppointments() {
     : upcomingAppts.filter(a => a.session === scheduleFilter);
 
   return (
-    <DoctorLayout activePage="My Schedule">
+  <>
       {selectedAppt && (
         <AppointmentDetailModal
           appt={selectedAppt}
@@ -479,7 +705,7 @@ export default function DoctorAppointments() {
             <h1 className="text-xl font-bold text-gray-800" style={{ fontFamily: "'Playfair Display', serif" }}>
               Appointment Schedule
             </h1>
-            <p className="text-sm text-gray-400 mt-1">Manage your daily channeling sessions</p>
+            <p className="text-sm text-gray-400 mt-1">Manage your daily appointment sessions</p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setShowUnavailManager(true)}
@@ -499,7 +725,7 @@ export default function DoctorAppointments() {
           <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
             <span className="text-red-500">⚠️</span>
             <span className="text-sm text-red-700">{error}</span>
-            <button onClick={fetchAppointments} className="ml-auto text-xs text-red-600 font-semibold underline">Retry</button>
+            <button onClick={() => fetchAppointments(selectedDate)} className="ml-auto text-xs text-red-600 font-semibold underline">Retry</button>
           </div>
         )}
 
@@ -630,13 +856,11 @@ export default function DoctorAppointments() {
                     ? "Sunday – Not Available"
                     : selectedFullyBlocked
                       ? `${selectedDayHolidays.find(h => h.session === "Both")?.reason || "Unavailable"} – Fully Blocked`
-                      : selectedDate !== today
-                        ? "Live data is only available for today"
-                        : `${currentSession} session · ${selectedAppts.length} appointment${selectedAppts.length !== 1 ? "s" : ""}`}
+                      : `${selectedAppts.length} appointment${selectedAppts.length !== 1 ? "s" : ""}`}
                 </p>
               </div>
               {/* Current session chip — only on today */}
-              {!isSunday(selectedDate) && !selectedFullyBlocked && selectedDate === today && (
+              {!isSunday(selectedDate) && !selectedFullyBlocked && (
                 <span className="text-xs font-semibold px-2.5 py-1 rounded-full border bg-blue-50 text-blue-700 border-blue-200 flex items-center gap-1">
                   {currentSession === "Morning" ? "🌤️" : "🌙"} {currentSession} Session
                 </span>
@@ -668,14 +892,6 @@ export default function DoctorAppointments() {
                 <div className="text-3xl mb-3 animate-pulse">⏳</div>
                 <div className="text-sm">Loading appointments…</div>
               </div>
-            ) : selectedDate !== today ? (
-              <div className="flex flex-col items-center justify-center h-64 text-gray-400 px-6 text-center">
-                <div className="text-5xl mb-3">📅</div>
-                <div className="font-medium text-sm">Viewing a different date</div>
-                <div className="text-xs mt-1">
-                  Appointment data is fetched for <strong>today ({today})</strong> only.
-                </div>
-              </div>
             ) : selectedAppts.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-64 text-gray-400">
                 <div className="text-5xl mb-3">{currentSession === "Morning" ? "🌤️" : "🌙"}</div>
@@ -698,7 +914,7 @@ export default function DoctorAppointments() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-semibold text-gray-800">{appt.patient}</div>
-                        <div className="text-xs text-gray-400 mt-0.5">Ch. #{appt.channeling} · {appt.session}</div>
+                        <div className="text-xs text-gray-400 mt-0.5">ID: {appt.apptId} · {appt.session}</div>
                       </div>
                       <span className={`text-xs font-semibold px-3 py-1 rounded-full border flex-shrink-0 ${style.bg} ${style.text} ${style.border}`}>
                         {appt.status}
@@ -718,7 +934,9 @@ export default function DoctorAppointments() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <h3 className="font-semibold text-gray-800 text-sm">Today's Full Schedule</h3>
+              <h3 className="font-semibold text-gray-800 text-sm">
+                {new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })} — Schedule
+              </h3>
               {/* Session filter */}
               <div className="flex bg-gray-100 rounded-xl p-1 gap-0.5">
                 {[
@@ -739,7 +957,7 @@ export default function DoctorAppointments() {
                 ))}
               </div>
             </div>
-            <button onClick={fetchAppointments}
+            <button onClick={() => fetchAppointments(selectedDate)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition">
               <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
                 <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd"/>
@@ -752,13 +970,13 @@ export default function DoctorAppointments() {
               <div className="flex items-center justify-center h-24 text-gray-400 text-sm">Loading…</div>
             ) : filteredScheduleAppts.length === 0 ? (
               <div className="flex items-center justify-center h-24 text-gray-400 text-sm">
-                {scheduleFilter === "All" ? "No appointments today." : `No ${scheduleFilter.toLowerCase()} appointments today.`}
+                {scheduleFilter === "All" ? "No appointments on this date." : `No ${scheduleFilter.toLowerCase()} appointments on this date.`}
               </div>
             ) : (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50">
-                    {["Ch. No.", "Patient", "Date", "Est. Time", "Session", "Status", "Actions"].map(h => (
+                    {["Appt. ID", "Patient", "Date", "Est. Time", "Session", "Status", "Actions"].map(h => (
                       <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                     ))}
                   </tr>
@@ -771,7 +989,7 @@ export default function DoctorAppointments() {
                         className="hover:bg-gray-50 transition cursor-pointer"
                         onClick={() => setSelectedAppt(appt)}>
                         <td className="px-5 py-3.5">
-                          <span className="font-mono text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-lg font-bold">#{appt.channeling}</span>
+                          <span className="font-mono text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-lg font-bold">{appt.apptId}</span>
                         </td>
                         <td className="px-5 py-3.5"><div className="font-medium text-gray-800">{appt.patient}</div></td>
                         <td className="px-5 py-3.5 text-gray-600">{appt.date}</td>
@@ -787,7 +1005,11 @@ export default function DoctorAppointments() {
                           </span>
                         </td>
                         <td className="px-5 py-3.5">
-                          <button className="text-blue-600 text-xs font-semibold hover:underline">Details</button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
+                            className="text-blue-600 text-xs font-semibold hover:underline flex items-center gap-1">
+                            View Details →
+                          </button>
                         </td>
                       </tr>
                     );
@@ -798,6 +1020,6 @@ export default function DoctorAppointments() {
           </div>
         </div>
       </div>
-    </DoctorLayout>
+  </>
   );
 }

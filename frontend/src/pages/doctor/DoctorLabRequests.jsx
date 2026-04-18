@@ -1,19 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import DoctorLayout from "../../components/DoctorLayout";
 import api from "../../services/api";
 import PatientSearchInput from "../../components/PatientSearchInput";
 
-const LAB_TESTS = [
-  "FBC",
-  "ESR",
-  "FBS",
-  "Liver Profile",
-  "Renal Profile",
-  "Thyroid Profile",
-  "Serum Vit D Level",
-  "Dengue Ag",
-];
+const LAB_TEST_PRICES = {
+  "FBC":               2100,
+  "FBS":               2300,
+  "ESR":               2500,
+  "Liver Profile":     2150,
+  "Renal Profile":     2250,
+  "Thyroid Profile":   2400,
+  "Serum Vit D Level": 3000,
+  "Dengue Ag":         3500,
+};
+const OTHER_PRICE = 4000;
+const LAB_TESTS = Object.keys(LAB_TEST_PRICES);
 
 const STATUS_CONFIG = {
   pending:     { class: "bg-amber-100 text-amber-700 border-amber-200",  dot: "bg-amber-400",  label: "Pending",     icon: "⏳" },
@@ -35,39 +36,79 @@ function formatDateTime(iso) {
 
 // ── Lab Request Modal (standalone creation / edit) ─────────────
 function LabRequestModal({ onClose, onSaved, existing = null }) {
-  const [patientName, setPatientName]     = useState(existing?.patientName || "");
-  const [patientId, setPatientId]         = useState(existing?.patientId || "");
-  const [channelingNo, setChannelingNo]   = useState(existing?.channelingNo || "");
-  const [checkedTests, setCheckedTests]   = useState(() => {
+  const [patientName, setPatientName] = useState(existing?.patientName || "");
+  const [patientId, setPatientId]     = useState(existing?.patientId || "");
+  const [appointmentNumber, setAppointmentNumber] = useState(existing?.appointmentNumber || "");
+
+  // checkedTests: { [testName]: true }
+  const [checkedTests, setCheckedTests] = useState(() => {
     if (!existing?.tests) return {};
     const m = {};
     existing.tests.filter(t => !t.isOther).forEach(t => { m[t.name] = true; });
     return m;
   });
-  const [otherChecked, setOtherChecked]   = useState(() => existing?.tests?.some(t => t.isOther) || false);
-  const [otherText, setOtherText]         = useState(() => existing?.tests?.find(t => t.isOther)?.name || "");
-  const [priority, setPriority]           = useState(existing?.priority || "Routine");
-  const [clinicalNotes, setClinical]      = useState(existing?.clinicalNotes || "");
-  const [saving, setSaving]               = useState(false);
-  const [error, setError]                 = useState("");
 
-  const toggleTest = (t) => setCheckedTests(prev => ({ ...prev, [t]: !prev[t] }));
-  const selectedCount = Object.values(checkedTests).filter(Boolean).length + (otherChecked && otherText ? 1 : 0);
+  // testPriorities: { [testName]: "Routine" | "Urgent" }
+  const [testPriorities, setTestPriorities] = useState(() => {
+    if (!existing?.tests) return {};
+    const m = {};
+    existing.tests.filter(t => !t.isOther).forEach(t => { m[t.name] = t.priority || "Routine"; });
+    return m;
+  });
+
+  const [otherChecked, setOtherChecked] = useState(() => existing?.tests?.some(t => t.isOther) || false);
+  const [otherText, setOtherText]       = useState(() => existing?.tests?.find(t => t.isOther)?.name || "");
+  const [otherPriority, setOtherPriority] = useState(() => existing?.tests?.find(t => t.isOther)?.priority || "Routine");
+
+  const [clinicalNotes, setClinical] = useState(existing?.clinicalNotes || "");
+  const [saving, setSaving]          = useState(false);
+  const [error, setError]            = useState("");
+
+  const toggleTest = (t) => {
+    setCheckedTests(prev => {
+      const next = { ...prev, [t]: !prev[t] };
+      // set default priority when first checked
+      if (next[t] && !testPriorities[t]) {
+        setTestPriorities(p => ({ ...p, [t]: "Routine" }));
+      }
+      return next;
+    });
+  };
+
+  const setTestPriority = (name, p) =>
+    setTestPriorities(prev => ({ ...prev, [name]: p }));
+
+  const selectedNames  = Object.entries(checkedTests).filter(([,v]) => v).map(([k]) => k);
+  const selectedCount  = selectedNames.length + (otherChecked && otherText ? 1 : 0);
+  const urgentCount    = selectedNames.filter(n => testPriorities[n] === "Urgent").length
+                       + (otherChecked && otherText && otherPriority === "Urgent" ? 1 : 0);
 
   const handleSubmit = async () => {
     setError("");
     if (!patientName.trim()) return setError("Patient name is required.");
-    if (selectedCount === 0) return setError("Select at least one test.");
+    if (selectedCount === 0)  return setError("Select at least one test.");
     if (otherChecked && !otherText.trim()) return setError("Describe the custom test.");
 
     const tests = [
-      ...Object.entries(checkedTests).filter(([,v]) => v).map(([name]) => ({ name, isOther: false })),
-      ...(otherChecked && otherText.trim() ? [{ name: otherText.trim(), isOther: true }] : []),
+      ...selectedNames.map(name => ({ name, isOther: false, price: LAB_TEST_PRICES[name] || 0, priority: testPriorities[name] || "Routine" })),
+      ...(otherChecked && otherText.trim()
+        ? [{ name: otherText.trim(), isOther: true, price: OTHER_PRICE, priority: otherPriority }]
+        : []),
     ];
+
+    // Overall priority = Urgent if any test is urgent, else Routine
+    const overallPriority = tests.some(t => t.priority === "Urgent") ? "Urgent" : "Routine";
 
     setSaving(true);
     try {
-      const payload = { patientName: patientName.trim(), patientId: patientId || undefined, channelingNo: channelingNo.trim(), tests, priority, clinicalNotes };
+      const payload = {
+        patientName:       patientName.trim(),
+        patientId:         patientId || undefined,
+        appointmentNumber: appointmentNumber.trim() || undefined,
+        tests,
+        priority:          overallPriority,
+        clinicalNotes,
+      };
       const res = existing
         ? await api.put(`/lab-requests/${existing._id}`, payload)
         : await api.post("/lab-requests", payload);
@@ -79,6 +120,36 @@ function LabRequestModal({ onClose, onSaved, existing = null }) {
       setSaving(false);
     }
   };
+
+  // Mini priority toggle used per-test
+  function PriorityToggle({ value, onChange }) {
+    return (
+      <div className="flex rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
+        <button
+          type="button"
+          onClick={() => onChange("Routine")}
+          className={`px-2 py-0.5 text-[10px] font-semibold transition ${
+            value === "Routine"
+              ? "bg-blue-600 text-white"
+              : "bg-white text-gray-400 hover:bg-gray-50"
+          }`}
+        >
+          Routine
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange("Urgent")}
+          className={`px-2 py-0.5 text-[10px] font-semibold transition border-l border-gray-200 ${
+            value === "Urgent"
+              ? "bg-red-500 text-white"
+              : "bg-white text-gray-400 hover:bg-gray-50"
+          }`}
+        >
+          🚨 Urgent
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -123,86 +194,119 @@ function LabRequestModal({ onClose, onSaved, existing = null }) {
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Channeling No.</label>
-                <input value={channelingNo} onChange={e => setChannelingNo(e.target.value)} placeholder="#000"
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
+                <label className="block text-xs text-gray-500 mb-1">Appointment Number</label>
+                <input
+                  type="text"
+                  value={appointmentNumber}
+                  onChange={e => setAppointmentNumber(e.target.value)}
+                  placeholder="e.g. APT-00123"
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition font-mono"
+                />
               </div>
-            </div>
-          </div>
-
-          {/* Priority */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Priority</label>
-            <div className="flex gap-3">
-              {["Routine", "Urgent"].map(p => (
-                <label key={p} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer transition text-sm font-medium ${
-                  priority === p
-                    ? p === "Urgent" ? "border-red-400 bg-red-50 text-red-700" : "border-blue-400 bg-blue-50 text-blue-700"
-                    : "border-gray-200 text-gray-600 hover:bg-gray-50 bg-white"
-                }`}>
-                  <input type="radio" name="priority" value={p} checked={priority === p} onChange={() => setPriority(p)} className="accent-blue-600"/>
-                  {p === "Urgent" ? "🚨" : "📋"} {p}
-                </label>
-              ))}
             </div>
           </div>
 
           {/* Test selection */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Select Tests <span className="text-red-400">*</span></label>
-              {selectedCount > 0 && (
-                <span className="text-xs bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full font-semibold">{selectedCount} selected</span>
-              )}
-            </div>
-
-            {/* Selected chips */}
-            {selectedCount > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
-                {Object.entries(checkedTests).filter(([,v]) => v).map(([name]) => (
-                  <span key={name} className="flex items-center gap-1 text-xs bg-blue-600 text-white px-3 py-1 rounded-full font-medium">
-                    {name} <button onClick={() => toggleTest(name)} className="hover:text-blue-200 ml-0.5">×</button>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Select Tests <span className="text-red-400">*</span>
+              </label>
+              <div className="flex items-center gap-2">
+                {urgentCount > 0 && (
+                  <span className="text-xs bg-red-100 text-red-600 px-2.5 py-0.5 rounded-full font-semibold">
+                    🚨 {urgentCount} Urgent
                   </span>
-                ))}
-                {otherChecked && otherText && (
-                  <span className="flex items-center gap-1 text-xs bg-amber-500 text-white px-3 py-1 rounded-full font-medium">
-                    ★ {otherText} <button onClick={() => { setOtherChecked(false); setOtherText(""); }} className="hover:text-amber-200 ml-0.5">×</button>
+                )}
+                {selectedCount > 0 && (
+                  <span className="text-xs bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full font-semibold">
+                    {selectedCount} selected
                   </span>
                 )}
               </div>
-            )}
+            </div>
 
-            <div className="grid grid-cols-2 gap-2 max-h-52 overflow-y-auto pr-1">
+            {/* Test checkboxes grid */}
+            <div className="grid grid-cols-2 gap-2 mb-3">
               {LAB_TESTS.map(test => (
                 <label key={test} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border cursor-pointer transition text-sm ${
-                  checkedTests[test] ? "border-blue-400 bg-blue-50 text-blue-700 font-medium" : "border-gray-200 hover:border-blue-200 hover:bg-blue-50/50 text-gray-700 bg-white"
+                  checkedTests[test]
+                    ? "border-blue-400 bg-blue-50 text-blue-700 font-medium"
+                    : "border-gray-200 hover:border-blue-200 hover:bg-blue-50/50 text-gray-700 bg-white"
                 }`}>
-                  <input type="checkbox" checked={!!checkedTests[test]} onChange={() => toggleTest(test)} className="w-3.5 h-3.5 accent-blue-600 flex-shrink-0"/>
+                  <input
+                    type="checkbox"
+                    checked={!!checkedTests[test]}
+                    onChange={() => toggleTest(test)}
+                    className="w-3.5 h-3.5 accent-blue-600 flex-shrink-0"
+                  />
                   {test}
                 </label>
               ))}
               <label className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border cursor-pointer transition text-sm ${
-                otherChecked ? "border-amber-400 bg-amber-50 text-amber-700 font-medium" : "border-gray-200 hover:border-amber-200 hover:bg-amber-50/50 text-gray-700 bg-white"
+                otherChecked
+                  ? "border-amber-400 bg-amber-50 text-amber-700 font-medium"
+                  : "border-gray-200 hover:border-amber-200 hover:bg-amber-50/50 text-gray-700 bg-white"
               }`}>
-                <input type="checkbox" checked={otherChecked} onChange={e => { setOtherChecked(e.target.checked); if (!e.target.checked) setOtherText(""); }}
-                  className="w-3.5 h-3.5 accent-amber-500 flex-shrink-0"/>
+                <input
+                  type="checkbox"
+                  checked={otherChecked}
+                  onChange={e => { setOtherChecked(e.target.checked); if (!e.target.checked) setOtherText(""); }}
+                  className="w-3.5 h-3.5 accent-amber-500 flex-shrink-0"
+                />
                 Other (custom)
               </label>
             </div>
 
             {otherChecked && (
-              <input value={otherText} onChange={e => setOtherText(e.target.value)} autoFocus
+              <input
+                value={otherText}
+                onChange={e => setOtherText(e.target.value)}
+                autoFocus
                 placeholder="Describe the custom test..."
-                className="mt-2 w-full px-4 py-2.5 rounded-xl border border-amber-300 bg-amber-50 text-sm text-amber-900 placeholder-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400 transition"/>
+                className="mb-3 w-full px-4 py-2.5 rounded-xl border border-amber-300 bg-amber-50 text-sm text-amber-900 placeholder-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400 transition"
+              />
+            )}
+
+            {/* ── Per-test priority list ── */}
+            {selectedCount > 0 && (
+              <div className="rounded-xl border border-gray-200 overflow-hidden">
+                <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Set priority per test
+                  </p>
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {selectedNames.map(name => (
+                    <div key={name} className="flex items-center justify-between px-4 py-2.5 bg-white">
+                      <span className="text-sm font-medium text-gray-700">{name}</span>
+                      <PriorityToggle
+                        value={testPriorities[name] || "Routine"}
+                        onChange={p => setTestPriority(name, p)}
+                      />
+                    </div>
+                  ))}
+                  {otherChecked && otherText && (
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-white">
+                      <span className="text-sm font-medium text-amber-700">★ {otherText}</span>
+                      <PriorityToggle value={otherPriority} onChange={setOtherPriority} />
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
           </div>
 
           {/* Clinical notes */}
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Clinical Notes for Lab</label>
-            <textarea value={clinicalNotes} onChange={e => setClinical(e.target.value)}
+            <textarea
+              value={clinicalNotes}
+              onChange={e => setClinical(e.target.value)}
               placeholder="Reason for tests, relevant clinical history..."
-              rows={2} className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none"/>
+              rows={2}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none"
+            />
           </div>
 
           <div className="flex gap-3 pt-1">
@@ -235,9 +339,8 @@ export default function DoctorLabRequests() {
   const [search, setSearch]           = useState("");
   const [cancelling, setCancelling]   = useState(null);
   const [toast, setToast]             = useState(null);
-  const [labResultRefs, setLabResultRefs] = useState({}); // labRequestId → testId
+  const [labResultRefs, setLabResultRefs] = useState({});
 
-  // DOM refs per card — for scroll-into-view when opened via ?open=
   const cardRefs = useRef({});
 
   const showToast = (msg, type = "success") => {
@@ -245,7 +348,7 @@ export default function DoctorLabRequests() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     try {
       const res = await api.get("/lab-requests");
       setLabRequests(res.data.labRequests || []);
@@ -255,7 +358,12 @@ export default function DoctorLabRequests() {
 
   useEffect(() => { load(); }, [load]);
 
-  // ── Read ?open=LR-xxxx — auto-expand that lab request card ──
+  // ── Auto-refresh every 30 seconds ────────────────────────────
+  useEffect(() => {
+    const interval = setInterval(() => load(true), 5_000);
+    return () => clearInterval(interval);
+  }, [load]);
+
   useEffect(() => {
     const params   = new URLSearchParams(location.search);
     const openLrId = params.get("open");
@@ -264,7 +372,6 @@ export default function DoctorLabRequests() {
     setExpandTarget(openLrId);
   }, [location.search, navigate]);
 
-  // ── Resolve expandTarget once lab requests are loaded ────────
   useEffect(() => {
     if (!expandTarget || loading || labRequests.length === 0) return;
     const match = labRequests.find(r => r.labRequestId === expandTarget);
@@ -280,7 +387,7 @@ export default function DoctorLabRequests() {
   }, [expandTarget, loading, labRequests]);
 
   const fetchLabResultRef = async (labRequestId) => {
-    if (labResultRefs[labRequestId] !== undefined) return; // already fetched
+    if (labResultRefs[labRequestId] !== undefined) return;
     try {
       const res = await api.get(`/lab-results?labRequestRef=${labRequestId}&limit=1`);
       const result = res.data.results?.[0];
@@ -334,7 +441,7 @@ export default function DoctorLabRequests() {
   };
 
   return (
-    <DoctorLayout activePage="Lab Requests">
+  <>
       {toast && (
         <div className={`fixed top-6 right-6 z-50 px-5 py-3.5 rounded-xl border shadow-lg text-sm font-medium ${
           toast.type === "success" ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-700"
@@ -420,7 +527,7 @@ export default function DoctorLabRequests() {
         ) : (
           <div className="space-y-3">
             {filtered.map(req => {
-              const sConfig  = STATUS_CONFIG[req.status] || STATUS_CONFIG.pending;
+              const sConfig   = STATUS_CONFIG[req.status] || STATUS_CONFIG.pending;
               const srcConfig = SOURCE_CONFIG[req.source] || SOURCE_CONFIG.standalone;
               const isExpanded = expandedId === req._id;
 
@@ -445,7 +552,6 @@ export default function DoctorLabRequests() {
                       <div>
                         <div className="text-sm font-semibold text-gray-800">{req.patientName}</div>
                         <div className="text-xs text-gray-400">
-                          {req.channelingNo ? `Ch. ${req.channelingNo} · ` : ""}
                           {req.tests?.length} test{req.tests?.length !== 1 ? "s" : ""}
                           {req.priority === "Urgent" && " · 🚨 Urgent"}
                         </div>
@@ -491,6 +597,10 @@ export default function DoctorLabRequests() {
                         Requested <strong className="ml-1 text-gray-700">{formatDateTime(req.createdAt)}</strong>
                         <span className="mx-2 text-gray-300">·</span>
                         By <strong className="ml-1 text-gray-700">{req.doctorName}</strong>
+                        {req.appointmentNumber && (
+                          <><span className="mx-2 text-gray-300">·</span>
+                          Appt <span className="ml-1 font-mono font-semibold text-gray-700">{req.appointmentNumber}</span></>
+                        )}
                         {req.prescriptionRef && (
                           <><span className="mx-2 text-gray-300">·</span>
                           Linked to{" "}
@@ -537,10 +647,15 @@ export default function DoctorLabRequests() {
                           </p>
                           <div className="flex flex-wrap gap-1.5">
                             {req.tests?.map((t, i) => (
-                              <span key={i} className={`text-xs px-3 py-1.5 rounded-full font-medium border ${
+                              <span key={i} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium border ${
                                 t.isOther ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-blue-50 text-blue-700 border-blue-200"
                               }`}>
                                 {t.isOther ? `★ ${t.name}` : t.name}
+                                {t.priority === "Urgent" && (
+                                  <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+                                    🚨 Urgent
+                                  </span>
+                                )}
                               </span>
                             ))}
                           </div>
@@ -555,7 +670,6 @@ export default function DoctorLabRequests() {
                             </div>
                           )}
 
-                          {/* Actions — for all pending lab requests */}
                           {req.status === "pending" && (
                             <div className="flex gap-2 pt-1">
                               <button onClick={() => setEditReq(req)}
@@ -589,6 +703,6 @@ export default function DoctorLabRequests() {
           </div>
         )}
       </div>
-    </DoctorLayout>
+  </>
   );
 }

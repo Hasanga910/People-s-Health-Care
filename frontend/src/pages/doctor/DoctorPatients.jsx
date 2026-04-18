@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import DoctorLayout from "../../components/DoctorLayout";
 import api from "../../services/api";
 
 function getInitials(name = "") {
@@ -556,7 +555,7 @@ export default function DoctorPatients() {
   const [search, setSearch]     = useState("");
   const [selected, setSelected] = useState(null);
 
-  const fetchPatients = useCallback(async () => {
+  const fetchPatients = useCallback(async (silent = false) => {
     try {
       const res = await api.get(`/patients${search ? `?search=${encodeURIComponent(search)}` : ""}`);
       setPatients(res.data.patients || []);
@@ -566,8 +565,14 @@ export default function DoctorPatients() {
 
   useEffect(() => {
     setLoading(true);
-    const t = setTimeout(fetchPatients, 300);
+    const t = setTimeout(() => fetchPatients(false), 300);
     return () => clearTimeout(t);
+  }, [fetchPatients]);
+
+  // ── Auto-refresh every 60 seconds ────────────────────────────
+  useEffect(() => {
+    const interval = setInterval(() => fetchPatients(true), 5_000);
+    return () => clearInterval(interval);
   }, [fetchPatients]);
 
   const now = new Date();
@@ -579,7 +584,7 @@ export default function DoctorPatients() {
   };
 
   return (
-    <DoctorLayout activePage="Patient Records">
+  <>
       {selected && <PatientModal patient={selected} onClose={() => setSelected(null)} />}
 
       <div className="p-6 space-y-5">
@@ -671,6 +676,6 @@ export default function DoctorPatients() {
           </div>
         )}
       </div>
-    </DoctorLayout>
+  </>
   );
 }

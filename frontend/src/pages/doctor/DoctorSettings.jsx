@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import DoctorLayout from "../../components/DoctorLayout";
 import api from "../../services/api";
 import authService from "../../services/authService";
 
@@ -7,37 +6,69 @@ const TABS = ["Profile", "Professional", "Security"];
 
 // Password validation rules
 const PW_RULES = [
-  { label: "At least 8 characters", test: (p) => p.length >= 8 },
-  { label: "One uppercase letter", test: (p) => /[A-Z]/.test(p) },
-  { label: "One lowercase letter", test: (p) => /[a-z]/.test(p) },
-  { label: "One number", test: (p) => /[0-9]/.test(p) },
-  { label: "One special character (!@#$...)", test: (p) => /[^A-Za-z0-9]/.test(p) },
+  { label: "At least 8 characters",        test: (p) => p.length >= 8 },
+  { label: "One uppercase letter",          test: (p) => /[A-Z]/.test(p) },
+  { label: "One lowercase letter",          test: (p) => /[a-z]/.test(p) },
+  { label: "One number",                    test: (p) => /[0-9]/.test(p) },
+  { label: "One special character (!@#$…)", test: (p) => /[^A-Za-z0-9]/.test(p) },
 ];
 
 function passwordStrength(pw) {
   const passed = PW_RULES.filter((r) => r.test(pw)).length;
   if (passed <= 1) return { score: 1, label: "Very weak", color: "bg-red-400" };
-  if (passed === 2) return { score: 2, label: "Weak", color: "bg-orange-400" };
-  if (passed === 3) return { score: 3, label: "Fair", color: "bg-yellow-400" };
-  if (passed === 4) return { score: 4, label: "Good", color: "bg-blue-400" };
-  return { score: 5, label: "Strong", color: "bg-green-500" };
+  if (passed === 2) return { score: 2, label: "Weak",      color: "bg-orange-400" };
+  if (passed === 3) return { score: 3, label: "Fair",      color: "bg-yellow-400" };
+  if (passed === 4) return { score: 4, label: "Good",      color: "bg-blue-400" };
+  return               { score: 5, label: "Strong",    color: "bg-green-500" };
+}
+
+/** Format experience years as "X+ years experience" */
+function formatExperience(years) {
+  const n = parseInt(years, 10);
+  if (!n || isNaN(n)) return null;
+  return `${n}+ years experience`;
 }
 
 function Avatar({ name, photo, size = 96 }) {
-  const initials = name ? name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) : "DR";
-  if (photo) return <img src={photo} alt={name} className="rounded-2xl object-cover ring-4 ring-white shadow-lg" style={{ width: size, height: size }} />;
+  const initials = name
+    ? name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+    : "DR";
+  if (photo)
+    return (
+      <img
+        src={photo}
+        alt={name}
+        className="rounded-2xl object-cover ring-4 ring-white shadow-lg"
+        style={{ width: size, height: size }}
+      />
+    );
   return (
-    <div className="rounded-2xl flex items-center justify-center ring-4 ring-white shadow-lg text-white font-bold"
-      style={{ width: size, height: size, background: "linear-gradient(135deg, #1565C0, #00ACC1)", fontSize: size * 0.32 }}>
+    <div
+      className="rounded-2xl flex items-center justify-center ring-4 ring-white shadow-lg text-white font-bold"
+      style={{
+        width: size, height: size,
+        background: "linear-gradient(135deg, #1565C0, #00ACC1)",
+        fontSize: size * 0.32,
+      }}
+    >
       {initials}
     </div>
   );
 }
 
 function Toast({ message, type, onClose }) {
-  useEffect(() => { const t = setTimeout(onClose, 3500); return () => clearTimeout(t); }, [onClose]);
+  useEffect(() => {
+    const t = setTimeout(onClose, 3500);
+    return () => clearTimeout(t);
+  }, [onClose]);
   return (
-    <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-xl border shadow-lg text-sm font-medium animate-slide-in ${type === "success" ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-700"}`}>
+    <div
+      className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-xl border shadow-lg text-sm font-medium animate-slide-in ${
+        type === "success"
+          ? "bg-green-50 border-green-200 text-green-800"
+          : "bg-red-50 border-red-200 text-red-700"
+      }`}
+    >
       <span>{type === "success" ? "✓" : "✕"}</span>
       {message}
       <button onClick={onClose} className="ml-2 opacity-50 hover:opacity-100">×</button>
@@ -57,12 +88,15 @@ function Field({ label, children, hint }) {
 
 function Input({ className = "", ...props }) {
   return (
-    <input className={`w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 transition bg-white ${className}`} {...props} />
+    <input
+      className={`w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 transition bg-white ${className}`}
+      {...props}
+    />
   );
 }
 
 function EyeIcon({ open }) {
-  if (open) {
+  if (open)
     return (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
         <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
@@ -70,7 +104,6 @@ function EyeIcon({ open }) {
         <line x1="1" y1="1" x2="23" y2="23" />
       </svg>
     );
-  }
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
@@ -91,7 +124,7 @@ function InfoRow({ label, value, icon }) {
   );
 }
 
-// Photo upload component - converts to base64 and stores as data URL
+// Photo upload — converts to base64 data URL
 function PhotoUploader({ current, onUpload }) {
   const fileRef = useRef();
   const [preview, setPreview] = useState(current || null);
@@ -126,15 +159,18 @@ function PhotoUploader({ current, onUpload }) {
           </div>
         )}
         {preview && (
-          <button onClick={() => { setPreview(null); onUpload(null); }}
-            className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600 transition">
-            ×
-          </button>
+          <button
+            onClick={() => { setPreview(null); onUpload(null); }}
+            className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600 transition"
+          >×</button>
         )}
       </div>
       <div className="space-y-2">
-        <button onClick={() => fileRef.current.click()} disabled={uploading}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-medium rounded-xl transition border border-blue-200 disabled:opacity-60">
+        <button
+          onClick={() => fileRef.current.click()}
+          disabled={uploading}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-medium rounded-xl transition border border-blue-200 disabled:opacity-60"
+        >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
           </svg>
@@ -147,98 +183,92 @@ function PhotoUploader({ current, onUpload }) {
   );
 }
 
-// Auto-prefix input for registration numbers
-function PrefixInput({ prefix, value, onChange, placeholder }) {
-  const handleChange = (e) => {
-    let val = e.target.value;
-    // Always ensure prefix is present
-    if (!val.startsWith(prefix)) {
-      val = prefix;
-    }
-    onChange(val);
-  };
-
-  const handleFocus = () => {
-    if (!value) onChange(prefix);
-  };
-
-  return (
-    <input
-      value={value || ""}
-      onChange={handleChange}
-      onFocus={handleFocus}
-      placeholder={placeholder}
-      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 transition bg-white font-mono"
-    />
-  );
-}
-
 export default function DoctorSettings() {
   const [activeTab, setActiveTab] = useState("Profile");
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState(null);
+  const [user, setUser]           = useState(null);
+  const [loading, setLoading]     = useState(true);
+  const [saving, setSaving]       = useState(false);
+  const [toast, setToast]         = useState(null);
 
-  const [profile, setProfile] = useState({ name: "", email: "", telephone: "", photo: "" });
-  const [professional, setProfessional] = useState({
-    slmcRegisterNumber: "", workingExperience: "", certifications: "",
-  });
-  const [security, setSecurity] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  // Profile tab — only phone + photo
+  const [profile, setProfile] = useState({ telephone: "", photo: "" });
+
+  // Professional tab — only experience (years) + certifications
+  const [professional, setProfessional] = useState({ experienceYears: "", certifications: "" });
+
+  // Security tab
+  const [security, setSecurity]         = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [showPasswords, setShowPasswords] = useState({ current: false, new: false, confirm: false });
 
   useEffect(() => {
     api.get("/auth/me").then((res) => {
       const u = res.data.user;
       setUser(u);
-      setProfile({ name: u.name || "", email: u.email || "", telephone: u.telephone || "", photo: u.photo || "" });
+      setProfile({
+        telephone: u.telephone || "",
+        photo:     u.photo     || "",
+      });
       const d = u.doctorDetails || {};
       setProfessional({
-        slmcRegisterNumber: d.slmcRegisterNumber || "",
-        workingExperience: d.workingExperience || "",
-        certifications: Array.isArray(d.certifications) ? d.certifications.join(", ") : (d.certifications || ""),
+        experienceYears: d.workingExperience || "",
+        certifications:  Array.isArray(d.certifications)
+          ? d.certifications.join(", ")
+          : (d.certifications || ""),
       });
-    }).catch(() => setToast({ message: "Failed to load profile", type: "error" }))
+    })
+      .catch(() => setToast({ message: "Failed to load profile", type: "error" }))
       .finally(() => setLoading(false));
   }, []);
 
   const showToast = (message, type = "success") => setToast({ message, type });
 
+  // ── Profile save: only telephone + photo ──────────────────────
   const handleProfileSave = async () => {
-    if (!profile.name.trim()) return showToast("Name cannot be empty", "error");
-    if (!profile.email.trim()) return showToast("Email cannot be empty", "error");
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(profile.email.trim())) return showToast("Please enter a valid email address", "error");
     setSaving(true);
     try {
       const res = await api.put("/auth/me", {
-        name:      profile.name,
-        email:     profile.email.trim().toLowerCase(),
         telephone: profile.telephone,
         photo:     profile.photo || null,
       });
       const stored = authService.getCurrentUser();
       if (stored) localStorage.setItem("user", JSON.stringify({ ...stored, ...res.data.user }));
+      // Also update sessionStorage so DoctorLayout picks it up immediately
+      const session = sessionStorage.getItem("user");
+      if (session) {
+        const parsed = JSON.parse(session);
+        sessionStorage.setItem("user", JSON.stringify({ ...parsed, ...res.data.user }));
+      }
       setUser((u) => ({ ...u, ...res.data.user }));
-      // Keep profile email in sync with what the server confirmed
-      setProfile(p => ({ ...p, email: res.data.user.email || p.email }));
       showToast("Profile updated successfully");
     } catch (err) {
       showToast(err.response?.data?.message || "Failed to update profile", "error");
     } finally { setSaving(false); }
   };
 
+  // ── Professional save: experience + certifications ─────────────
   const handleProfessionalSave = async () => {
+    const yearsNum = parseInt(professional.experienceYears, 10);
+    if (professional.experienceYears && (isNaN(yearsNum) || yearsNum < 0)) {
+      return showToast("Experience must be a valid number of years", "error");
+    }
     setSaving(true);
     try {
       const certArr = professional.certifications
         ? professional.certifications.split(",").map((c) => c.trim()).filter(Boolean)
         : [];
-      const updatedDoctorDetails = { ...professional, certifications: certArr };
+      const updatedDoctorDetails = {
+        workingExperience: professional.experienceYears ? String(yearsNum) : "",
+        certifications:    certArr,
+      };
       const res = await api.put("/auth/me", { doctorDetails: updatedDoctorDetails });
-      // Update local user state so the summary sidebar reflects changes immediately
       const newDoctorDetails = res.data?.user?.doctorDetails || updatedDoctorDetails;
       setUser((u) => ({ ...u, doctorDetails: newDoctorDetails }));
+      // Keep sessionStorage in sync so DoctorLayout subtitle updates live
+      const session = sessionStorage.getItem("user");
+      if (session) {
+        const parsed = JSON.parse(session);
+        sessionStorage.setItem("user", JSON.stringify({ ...parsed, doctorDetails: newDoctorDetails }));
+      }
       const stored = authService.getCurrentUser();
       if (stored) localStorage.setItem("user", JSON.stringify({ ...stored, doctorDetails: newDoctorDetails }));
       showToast("Professional details updated");
@@ -247,6 +277,7 @@ export default function DoctorSettings() {
     } finally { setSaving(false); }
   };
 
+  // ── Password save ──────────────────────────────────────────────
   const handlePasswordSave = async () => {
     const failedRules = PW_RULES.filter((r) => !r.test(security.newPassword));
     if (failedRules.length > 0) return showToast(`Password: ${failedRules[0].label}`, "error");
@@ -265,21 +296,21 @@ export default function DoctorSettings() {
   const joinedDate = user?.createdAt
     ? new Date(user.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
     : "—";
-  const certCount = user?.doctorDetails?.certifications?.length || 0;
-  const pwStrength = security.newPassword ? passwordStrength(security.newPassword) : null;
+
+  const certCount   = user?.doctorDetails?.certifications?.length || 0;
+  const expDisplay  = formatExperience(user?.doctorDetails?.workingExperience);
+  const pwStrength  = security.newPassword ? passwordStrength(security.newPassword) : null;
 
   if (loading) {
     return (
-      <DoctorLayout activePage="Settings">
-        <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64">
           <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
         </div>
-      </DoctorLayout>
     );
   }
 
   return (
-    <DoctorLayout activePage="Settings">
+  <>
       <style>{`
         @keyframes slide-in { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         .animate-slide-in { animation: slide-in 0.25s ease; }
@@ -288,9 +319,12 @@ export default function DoctorSettings() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       <div className="p-6 space-y-6">
+
         {/* Banner */}
-        <div className="rounded-2xl p-6 flex items-center justify-between overflow-hidden relative"
-          style={{ background: "linear-gradient(135deg, #0D2137 0%, #1565C0 60%, #00ACC1 100%)" }}>
+        <div
+          className="rounded-2xl p-6 flex items-center justify-between overflow-hidden relative"
+          style={{ background: "linear-gradient(135deg, #0D2137 0%, #1565C0 60%, #00ACC1 100%)" }}
+        >
           <div className="absolute right-0 top-0 bottom-0 w-64 opacity-10">
             <svg viewBox="0 0 200 200" fill="white"><circle cx="150" cy="100" r="80" /><circle cx="50" cy="50" r="50" /></svg>
           </div>
@@ -311,16 +345,23 @@ export default function DoctorSettings() {
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Left sidebar */}
+
+          {/* ── Left sidebar – Account Summary ── */}
           <div className="space-y-5">
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
               <h3 className="text-sm font-semibold text-gray-700 mb-1">Account Summary</h3>
               <p className="text-xs text-gray-400 mb-4">Your current profile at a glance</p>
-              <InfoRow icon="🪪" label="Staff ID" value={user?.userId} />
-              <InfoRow icon="📞" label="Telephone" value={user?.telephone} />
-              <InfoRow icon="📅" label="Joined" value={joinedDate} />
-              <InfoRow icon="🏥" label="SLMC No." value={user?.doctorDetails?.slmcRegisterNumber} />
-              <InfoRow icon="🎓" label="Experience" value={user?.doctorDetails?.workingExperience} />
+              <InfoRow icon="🪪" label="Staff ID"     value={user?.userId} />
+              <InfoRow icon="👤" label="Name"         value={user?.name} />
+              <InfoRow icon="📧" label="Email"        value={user?.email} />
+              <InfoRow icon="📞" label="Telephone"    value={user?.telephone} />
+              <InfoRow icon="📅" label="Joined"       value={joinedDate} />
+              <InfoRow icon="🏥" label="SLMC No."     value={user?.doctorDetails?.slmcRegisterNumber} />
+              <InfoRow
+                icon="🎓"
+                label="Experience"
+                value={expDisplay}
+              />
               <InfoRow icon="📜" label="Certifications" value={certCount > 0 ? `${certCount} listed` : null} />
             </div>
 
@@ -336,14 +377,20 @@ export default function DoctorSettings() {
                 </div>
               </div>
             )}
+
           </div>
 
-          {/* Right tabbed form */}
+          {/* ── Right tabbed form ── */}
           <div className="lg:col-span-2 space-y-5">
             <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
               {TABS.map((tab) => (
-                <button key={tab} onClick={() => setActiveTab(tab)}
-                  className={`flex-1 py-2 text-sm font-medium rounded-lg transition ${activeTab === tab ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex-1 py-2 text-sm font-medium rounded-lg transition ${
+                    activeTab === tab ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
                   {tab}
                 </button>
               ))}
@@ -351,12 +398,12 @@ export default function DoctorSettings() {
 
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
 
-              {/* ── PROFILE TAB ── */}
+              {/* ── PROFILE TAB: phone + photo only ── */}
               {activeTab === "Profile" && (
                 <div className="space-y-5">
                   <div>
-                    <h3 className="font-semibold text-gray-800">Personal Information</h3>
-                    <p className="text-sm text-gray-400 mt-0.5">Update your name, contact number, and profile photo.</p>
+                    <h3 className="font-semibold text-gray-800">Profile Information</h3>
+                    <p className="text-sm text-gray-400 mt-0.5">Update your contact number and profile photo.</p>
                   </div>
 
                   {/* Photo uploader */}
@@ -367,74 +414,89 @@ export default function DoctorSettings() {
                     />
                   </Field>
 
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <Field label="Full Name">
-                      <Input value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} placeholder="Dr. Full Name" />
-                    </Field>
-                    <Field label="Telephone">
-                      <Input value={profile.telephone} onChange={(e) => setProfile({ ...profile, telephone: e.target.value })} placeholder="+94 71 234 5678" />
-                    </Field>
-                  </div>
-
-                  <Field label="Email Address" hint="Must be unique — you'll use this to log in.">
+                  {/* Phone */}
+                  <Field label="Telephone">
                     <Input
-                      type="email"
-                      value={profile.email}
-                      onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                      placeholder="doctor@example.com"
+                      value={profile.telephone}
+                      onChange={(e) => setProfile({ ...profile, telephone: e.target.value })}
+                      placeholder="+94 71 234 5678"
+                      type="tel"
                     />
                   </Field>
 
                   <div className="pt-2 flex justify-end">
-                    <button onClick={handleProfileSave} disabled={saving}
-                      className="px-7 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition disabled:opacity-60">
+                    <button
+                      onClick={handleProfileSave}
+                      disabled={saving}
+                      className="px-7 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition disabled:opacity-60"
+                    >
                       {saving ? "Saving…" : "Save Changes"}
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* ── PROFESSIONAL TAB ── */}
+              {/* ── PROFESSIONAL TAB: experience + certifications ── */}
               {activeTab === "Professional" && (
                 <div className="space-y-5">
                   <div>
                     <h3 className="font-semibold text-gray-800">Professional Details</h3>
-                    <p className="text-sm text-gray-400 mt-0.5">Update your medical credentials and experience.</p>
+                    <p className="text-sm text-gray-400 mt-0.5">Update your experience and certifications.</p>
                   </div>
 
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <Field label="SLMC Register Number" hint='Auto-prefix "SLMC-" applied'>
-                      <PrefixInput
-                        prefix="SLMC-"
-                        value={professional.slmcRegisterNumber}
-                        onChange={(v) => setProfessional({ ...professional, slmcRegisterNumber: v })}
-                        placeholder="SLMC-12345"
+                  {/* Experience — number input */}
+                  <Field label="Years of Experience" hint='Enter a number — displayed as "X+ years experience" across the portal.'>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        min="0"
+                        max="60"
+                        value={professional.experienceYears}
+                        onChange={(e) => setProfessional({ ...professional, experienceYears: e.target.value })}
+                        placeholder="e.g. 8"
+                        className="pr-36"
                       />
-                    </Field>
-                  </div>
-
-                  <Field label="Working Experience">
-                    <Input value={professional.workingExperience}
-                      onChange={(e) => setProfessional({ ...professional, workingExperience: e.target.value })}
-                      placeholder="e.g. 8 years in Cardiology" />
+                      {professional.experienceYears && !isNaN(parseInt(professional.experienceYears, 10)) && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg pointer-events-none">
+                          {parseInt(professional.experienceYears, 10)}+ years experience
+                        </span>
+                      )}
+                    </div>
                   </Field>
 
+                  {/* Certifications */}
                   <Field label="Certifications" hint="Separate multiple certifications with commas.">
-                    <textarea value={professional.certifications}
+                    <textarea
+                      value={professional.certifications}
                       onChange={(e) => setProfessional({ ...professional, certifications: e.target.value })}
                       placeholder="MBBS, MD, Fellowship in Cardiology"
-                      rows={3}
-                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 transition bg-white resize-none" />
+                      rows={4}
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 transition bg-white resize-none"
+                    />
                   </Field>
+
+                  {/* Preview chips */}
+                  {professional.certifications && (
+                    <div className="flex flex-wrap gap-2">
+                      {professional.certifications.split(",").map((c) => c.trim()).filter(Boolean).map((cert, i) => (
+                        <span key={i} className="text-xs px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full font-medium">
+                          ✓ {cert}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
                   <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
                     <p className="text-xs font-semibold text-blue-700 mb-1">Why this matters</p>
-                    <p className="text-xs text-blue-600">Your SLMC registration and certifications are displayed to patients and administrators to establish credibility and trust.</p>
+                    <p className="text-xs text-blue-600">Your experience and certifications are displayed to patients and administrators to establish credibility and trust.</p>
                   </div>
 
                   <div className="pt-2 flex justify-end">
-                    <button onClick={handleProfessionalSave} disabled={saving}
-                      className="px-7 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition disabled:opacity-60">
+                    <button
+                      onClick={handleProfessionalSave}
+                      disabled={saving}
+                      className="px-7 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition disabled:opacity-60"
+                    >
                       {saving ? "Saving…" : "Save Changes"}
                     </button>
                   </div>
@@ -449,15 +511,20 @@ export default function DoctorSettings() {
                     <p className="text-sm text-gray-400 mt-0.5">Your password must meet all requirements below.</p>
                   </div>
 
-                  {/* Current password */}
                   <Field label="Current Password">
                     <div className="relative">
-                      <Input type={showPasswords.current ? "text" : "password"}
+                      <Input
+                        type={showPasswords.current ? "text" : "password"}
                         value={security.currentPassword}
                         onChange={(e) => setSecurity({ ...security, currentPassword: e.target.value })}
-                        placeholder="Enter current password" className="pr-10" />
-                      <button type="button" onClick={() => setShowPasswords((p) => ({ ...p, current: !p.current }))}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                        placeholder="Enter current password"
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswords((p) => ({ ...p, current: !p.current }))}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
                         <EyeIcon open={showPasswords.current} />
                       </button>
                     </div>
@@ -466,36 +533,51 @@ export default function DoctorSettings() {
                   <div className="grid sm:grid-cols-2 gap-4">
                     <Field label="New Password">
                       <div className="relative">
-                        <Input type={showPasswords.new ? "text" : "password"}
+                        <Input
+                          type={showPasswords.new ? "text" : "password"}
                           value={security.newPassword}
                           onChange={(e) => setSecurity({ ...security, newPassword: e.target.value })}
-                          placeholder="Min. 8 characters" className="pr-10" />
-                        <button type="button" onClick={() => setShowPasswords((p) => ({ ...p, new: !p.new }))}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                          placeholder="Min. 8 characters"
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPasswords((p) => ({ ...p, new: !p.new }))}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
                           <EyeIcon open={showPasswords.new} />
                         </button>
                       </div>
                     </Field>
                     <Field label="Confirm New Password">
                       <div className="relative">
-                        <Input type={showPasswords.confirm ? "text" : "password"}
+                        <Input
+                          type={showPasswords.confirm ? "text" : "password"}
                           value={security.confirmPassword}
                           onChange={(e) => setSecurity({ ...security, confirmPassword: e.target.value })}
-                          placeholder="Repeat new password" className="pr-10" />
-                        <button type="button" onClick={() => setShowPasswords((p) => ({ ...p, confirm: !p.confirm }))}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                          placeholder="Repeat new password"
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPasswords((p) => ({ ...p, confirm: !p.confirm }))}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
                           <EyeIcon open={showPasswords.confirm} />
                         </button>
                       </div>
                     </Field>
                   </div>
 
-                  {/* Password strength bar */}
+                  {/* Strength bar */}
                   {security.newPassword && pwStrength && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <p className="text-xs text-gray-500 font-medium">Password strength</p>
-                        <span className="text-xs font-semibold" style={{ color: pwStrength.score >= 4 ? "#16a34a" : pwStrength.score >= 3 ? "#ca8a04" : "#dc2626" }}>
+                        <span
+                          className="text-xs font-semibold"
+                          style={{ color: pwStrength.score >= 4 ? "#16a34a" : pwStrength.score >= 3 ? "#ca8a04" : "#dc2626" }}
+                        >
                           {pwStrength.label}
                         </span>
                       </div>
@@ -533,18 +615,22 @@ export default function DoctorSettings() {
                   </div>
 
                   <div className="pt-2 flex justify-end">
-                    <button onClick={handlePasswordSave}
+                    <button
+                      onClick={handlePasswordSave}
                       disabled={saving || !security.currentPassword || !security.newPassword || !security.confirmPassword}
-                      className="px-7 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition disabled:opacity-60">
+                      className="px-7 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition disabled:opacity-60"
+                    >
                       {saving ? "Updating…" : "Update Password"}
                     </button>
                   </div>
                 </div>
               )}
+
             </div>
           </div>
         </div>
       </div>
-    </DoctorLayout>
+
+  </>
   );
 }
