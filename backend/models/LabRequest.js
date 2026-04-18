@@ -22,17 +22,20 @@ const labRequestSchema = new mongoose.Schema({
   // Who it's for
   patientId:    { type: String, default: null },
   patientName:  { type: String, required: true },
-  channelingNo: { type: String, default: '' },
+  // Optional appointment reference
+  appointmentNumber: { type: String, default: null },
 
-  // Tests
+  // Tests — each test has its own priority
   tests: [{
-    name:    { type: String, required: true },
-    isOther: { type: Boolean, default: false },
+    name:     { type: String, required: true },
+    isOther:  { type: Boolean, default: false },
+    price:    { type: Number, default: 0 },
+    priority: { type: String, enum: ['Routine', 'Urgent'], default: 'Routine' },
     _id: false,
   }],
 
-  // Lab details
-  priority:            { type: String, enum: ['Routine', 'Urgent'], default: 'Routine' },
+  // Overall priority — derived (Urgent if any test is Urgent, else Routine)
+  priority: { type: String, enum: ['Routine', 'Urgent'], default: 'Routine' },
 
   clinicalNotes:       { type: String, default: '' },
 
