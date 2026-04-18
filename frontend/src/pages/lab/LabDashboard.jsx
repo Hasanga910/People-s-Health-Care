@@ -8,7 +8,7 @@ const ACTIVE_REQUESTS = [
 ];
 
 const COMPLETED_TODAY = [
-  { id: "LR-2026-041", patient: "Kamal Perera", tests: ["CBC", "Fasting Blood Glucose"], completedAt: "08:20 AM", uploaded: true },
+  { id: "LR-2026-041", patient: "Nimali Perera", tests: ["CBC", "Fasting Blood Glucose"], completedAt: "08:20 AM", uploaded: true },
   { id: "LR-2026-040", patient: "Amali Jayasena", tests: ["Lipid Profile"], completedAt: "09:00 AM", uploaded: true },
   { id: "LR-2026-039", patient: "Anura Dissanayake", tests: ["ECG"], completedAt: "09:45 AM", uploaded: false },
 ];
