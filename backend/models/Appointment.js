@@ -24,6 +24,27 @@ const appointmentSchema = new mongoose.Schema({
     default: 'Pending',
   },
 
+  // ── Cancellation metadata ──────────────────────────────────
+  // Populated only when the appointment is cancelled (either by the
+  // patient, or automatically when the doctor marks a holiday).
+  //
+  // source = 'holiday'  → auto-cancelled because doctor marked the
+  //                       session/day as a holiday. Triggers the
+  //                       patient-side toast notification.
+  // source = 'patient'  → patient self-cancelled from their portal.
+  cancellation: {
+    source: {
+      type: String,
+      enum: ['patient', 'holiday', 'system'],
+      default: null,
+    },
+    reason:      { type: String, default: '' },
+    cancelledAt: { type: Date,   default: null },
+    // Tracks whether the patient has already seen the toast for this
+    // cancellation. Flips to true after the first successful poll.
+    notifiedAt:  { type: Date,   default: null },
+  },
+
 }, { timestamps: true });
 
 appointmentSchema.index({ patientId: 1, createdAt: -1 });
