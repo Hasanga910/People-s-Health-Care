@@ -3,7 +3,7 @@ import LabRequest from '../models/LabRequest.js';
 // ── Create standalone lab request (doctor opens lab page directly) ──
 export const createLabRequest = async (req, res) => {
   try {
-    const { patientName, patientId, channelingNo, tests, priority, clinicalNotes } = req.body;
+    const { patientName, patientId, appointmentNumber, tests, priority, clinicalNotes } = req.body;
 
     if (!patientName) return res.status(400).json({ success: false, message: 'Patient name is required' });
     if (!tests?.length) return res.status(400).json({ success: false, message: 'At least one test is required' });
@@ -12,14 +12,14 @@ export const createLabRequest = async (req, res) => {
     const labRequest = await LabRequest.create({
       labRequestId,
       source: 'standalone',
-      doctorId:   req.user._id,
-      doctorName: req.user.name,
-      patientId:  patientId || null,
+      doctorId:          req.user._id,
+      doctorName:        req.user.name,
+      patientId:         patientId || null,
       patientName,
-      channelingNo: channelingNo || '',
+      appointmentNumber: appointmentNumber || null,
       tests,
-      priority:     priority || 'Routine',
-      clinicalNotes: clinicalNotes || '',
+      priority:          priority || 'Routine',
+      clinicalNotes:     clinicalNotes || '',
     });
 
     res.status(201).json({ success: true, message: 'Lab request created', labRequest });
@@ -32,7 +32,7 @@ export const createLabRequest = async (req, res) => {
 // ── Get all lab requests (role-filtered) ─────────────────────
 export const getLabRequests = async (req, res) => {
   try {
-    const { status, limit = 50 } = req.query;
+    const { status, appointmentNumber, limit = 50 } = req.query;
     const filter = {};
     const role = req.user.role;
 
@@ -40,6 +40,8 @@ export const getLabRequests = async (req, res) => {
     if (role === 'lab')    filter.status = status || { $in: ['pending', 'in_progress', 'completed'] };
     if (role === 'patient') filter.patientId = req.user._id;
     if (role === 'admin' && status) filter.status = status;
+
+    if (appointmentNumber) filter.appointmentNumber = appointmentNumber;
 
     const labRequests = await LabRequest.find(filter).sort({ createdAt: -1 }).limit(parseInt(limit));
     res.status(200).json({ success: true, count: labRequests.length, labRequests });
@@ -72,12 +74,12 @@ export const updateLabRequest = async (req, res) => {
     if (labRequest.status !== 'pending')
       return res.status(400).json({ success: false, message: 'Can only edit pending lab requests' });
 
-    const { patientName, channelingNo, tests, priority, clinicalNotes } = req.body;
-    if (patientName) labRequest.patientName = patientName;
-    if (channelingNo !== undefined) labRequest.channelingNo = channelingNo;
-    if (tests?.length) labRequest.tests = tests;
-    if (priority) labRequest.priority = priority;
-    if (clinicalNotes !== undefined) labRequest.clinicalNotes = clinicalNotes;
+    const { patientName, appointmentNumber, tests, priority, clinicalNotes } = req.body;
+    if (patientName)                    labRequest.patientName        = patientName;
+    if (appointmentNumber !== undefined) labRequest.appointmentNumber  = appointmentNumber || null;
+    if (tests?.length)                  labRequest.tests              = tests;
+    if (priority)                       labRequest.priority           = priority;
+    if (clinicalNotes !== undefined)    labRequest.clinicalNotes      = clinicalNotes;
 
     await labRequest.save();
     res.status(200).json({ success: true, message: 'Lab request updated', labRequest });
