@@ -160,8 +160,8 @@ export default function Register() {
 
       if (!formData.password)
         return setError('Password is required.') || false;
-      if (!/^(?=.*[a-zA-Z])(?=.*\d).{6,}$/.test(formData.password))
-        return setError('Password must be at least 6 characters and include both letters and numbers.') || false;
+      if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(formData.password))
+        return setError('Password must be at least 8 characters and include uppercase, lowercase, number, and special character.') || false;
 
       if (!formData.confirmPassword)
         return setError('Please confirm your password.') || false;
@@ -396,9 +396,9 @@ export default function Register() {
               <div className="grid grid-cols-2 gap-4">
                 <InputField
                   label="Password" name="password" type="password"
-                  placeholder="Min. 6 characters"
+                  placeholder="Min. 8 characters"
                   value={formData.password} onChange={handleChange}
-                  hint="Must include letters and numbers"
+                  hint="At least 8 chars, include uppercase, lowercase, number & symbol (@$!%*?&)"
                 />
                 <InputField
                   label="Confirm Password" name="confirmPassword" type="password"

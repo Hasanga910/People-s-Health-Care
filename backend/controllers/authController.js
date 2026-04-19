@@ -4,7 +4,7 @@ import { generateToken } from '../middleware/auth.js';
 // ── Validation helpers ─────────────────────────────────────
 const isValidEmail    = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 const isValidPhone    = (v) => /^\d{10}$/.test(v);
-const isValidPassword = (v) => /^(?=.*[a-zA-Z])(?=.*\d).{6,}$/.test(v);
+const isValidPassword = (v) => /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(v);
 const isValidUsername = (v) => /^[a-zA-Z0-9_]{3,20}$/.test(v);
 
 // ── Age helper ─────────────────────────────────────────────
@@ -70,7 +70,7 @@ export const register = async (req, res) => {
 
     // ── Password strength ──────────────────────────────────
     if (!isValidPassword(password))
-      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters and include both letters and numbers' });
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character' });
 
     // ── Phone ──────────────────────────────────────────────
     if (!isValidPhone(telephone))
