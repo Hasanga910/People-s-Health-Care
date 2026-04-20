@@ -26,8 +26,9 @@ export const createPrescription = async (req, res) => {
 
     if (!patientName)
       return res.status(400).json({ success: false, message: 'Patient name is required' });
-    if (!medications?.length)
-      return res.status(400).json({ success: false, message: 'At least one medication is required' });
+    // Allow lab-only prescriptions (no medications required if lab tests are present)
+    if (!medications?.length && !labTests?.length)
+      return res.status(400).json({ success: false, message: 'At least one medication or lab test is required' });
 
     const prescriptionId = await Prescription.generatePrescriptionId();
 
@@ -231,11 +232,7 @@ export const markDispensed = async (req, res) => {
   }
 };
 
-// ── Cancel prescription ───────────────────────────────────────
-// ── Doctor: cancel (hard delete) ─────────────────────────────
-// Removes the prescription entirely from the DB.
-// Blocked if the pharmacy has already dispensed or started preparing.
-// Optional body flag: { cancelLabToo: true } → also deletes the linked lab request if it's still pending.
+// ── Cancel prescription ────────────────────────────────────
 export const cancelPrescription = async (req, res) => {
   try {
     const prescription = await Prescription.findById(req.params.id);
@@ -257,28 +254,178 @@ export const cancelPrescription = async (req, res) => {
       }
     }
 
-    let labCancelled = false;
-
-    // Optionally delete the linked lab request too
-    if (req.body?.cancelLabToo && prescription.labRequestId) {
-      const labRequest = await LabRequest.findById(prescription.labRequestId);
-      if (labRequest) {
-        if (labRequest.status === 'pending') {
-          await labRequest.deleteOne();
-          labCancelled = true;
-        }
-        // If lab is already in_progress or completed, we skip silently —
-        // the prescription is still deleted but the lab request stays
-      }
-    }
-
     await prescription.deleteOne();
-    res.status(200).json({
-      success: true,
-      message: 'Prescription deleted',
-      labCancelled,  // frontend uses this to update its state
-    });
+    res.status(200).json({ success: true, message: 'Prescription deleted', labCancelled });
+
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+};
+
+// ── Generate Prescription PDF ──────────────────────────────
+export const getPrescriptionPDF = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const prescription = id.startsWith('RX-')
+      ? await Prescription.findOne({ prescriptionId: id })
+      : await Prescription.findById(id);
+
+    if (!prescription)
+      return res.status(404).json({ success: false, message: 'Prescription not found' });
+
+    // Security: patient can only download their own
+    if (req.user.role === 'patient' && prescription.patientId !== req.user.userId)
+      return res.status(403).json({ success: false, message: 'Access denied' });
+
+    // Fetch patient details for blood group and age
+    const patient = await User.findOne({ userId: prescription.patientId });
+    let age = 'N/A';
+    if (patient?.patientDetails?.birthday) {
+      const today = new Date();
+      const birth = new Date(patient.patientDetails.birthday);
+      let years = today.getFullYear() - birth.getFullYear();
+      const m = today.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) years--;
+      age = `${years} years`;
+    }
+    const bloodGroup = patient?.patientDetails?.bloodGroup || 'N/A';
+
+    // Fetch appointment details if linked
+    let appointment = null;
+    if (prescription.appointmentId) {
+      appointment = await Appointment.findOne({ appointmentId: prescription.appointmentId });
+    }
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition',
+      `attachment; filename="prescription-${prescription.prescriptionId}.pdf"`);
+
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    doc.pipe(res);
+
+    // ── Header ─────────────────────────────────────────────
+    doc.rect(0, 0, 595, 100).fill('#0D2137');
+    doc.fillColor('white')
+       .fontSize(20).font('Helvetica-Bold')
+       .text(CLINIC.name, 50, 15);
+    doc.fontSize(10).font('Helvetica')
+       .text(CLINIC.doctor,  50, 40)
+       .text(CLINIC.quals,   50, 54)
+       .text(CLINIC.slmc,    50, 68);
+    doc.fontSize(9)
+       .text(CLINIC.address, 300, 40)
+       .text(CLINIC.tel,     300, 54);
+
+    // ── Title badge ────────────────────────────────────────
+    doc.fillColor('#1a1a1a');
+    doc.roundedRect(50, 115, 495, 45, 8).fill('#E3F2FD');
+    doc.fillColor('#1565C0').fontSize(13).font('Helvetica-Bold')
+       .text('💊  Medical Prescription', 50, 128, { width: 495, align: 'center' });
+
+    // ── Prescription info ──────────────────────────────────
+    doc.fillColor('#1a1a1a').fontSize(13).font('Helvetica-Bold')
+       .text('Prescription Details', 50, 178);
+    doc.moveTo(50, 195).lineTo(545, 195).strokeColor('#E0E0E0').stroke();
+
+    const drawRow = (label, value, y) => {
+      doc.fontSize(10).font('Helvetica').fillColor('#757575').text(label, 50, y);
+      doc.fontSize(11).font('Helvetica-Bold').fillColor('#1a1a1a').text(String(value || '—'), 230, y);
+    };
+
+    let y = 208; const gap = 28;
+    drawRow('Prescription ID', prescription.prescriptionId,  y); y += gap;
+    drawRow('Date Issued',
+      new Date(prescription.createdAt).toLocaleDateString('en-GB', {
+        day: '2-digit', month: 'long', year: 'numeric'
+      }), y); y += gap;
+    drawRow('Doctor',          prescription.doctorName,      y); y += gap;
+    if (appointment) {
+      drawRow('Appointment ID', prescription.appointmentId,  y); y += gap;
+      drawRow('Session',        appointment.session,         y); y += gap;
+      drawRow('Visit Date',     appointment.date,            y); y += gap;
+    }
+    drawRow('Pharmacy Status',
+      prescription.pharmacyStatus.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      y); y += gap;
+
+    // ── Patient details ────────────────────────────────────
+    y += 5;
+    doc.moveTo(50, y).lineTo(545, y).strokeColor('#E0E0E0').stroke(); y += 15;
+    doc.fontSize(13).font('Helvetica-Bold').fillColor('#1a1a1a')
+       .text('Patient Details', 50, y); y += 18;
+    doc.moveTo(50, y).lineTo(545, y).strokeColor('#E0E0E0').stroke(); y += 15;
+
+    drawRow('Patient ID',  prescription.patientId,   y); y += gap;
+    drawRow('Full Name',   prescription.patientName, y); y += gap;
+    drawRow('Age',         age,                      y); y += gap;
+    drawRow('Blood Group', bloodGroup,               y); y += gap;
+
+    // ── Medications ────────────────────────────────────────
+    y += 5;
+    doc.moveTo(50, y).lineTo(545, y).strokeColor('#E0E0E0').stroke(); y += 15;
+    doc.fontSize(13).font('Helvetica-Bold').fillColor('#1a1a1a')
+       .text('Medications', 50, y); y += 18;
+    doc.moveTo(50, y).lineTo(545, y).strokeColor('#E0E0E0').stroke(); y += 10;
+
+    prescription.medications.forEach((med, i) => {
+      // Medication box
+      doc.roundedRect(50, y, 495, 60, 6).fill('#F8FAFC').stroke('#E2E8F0');
+
+      doc.fontSize(12).font('Helvetica-Bold').fillColor('#1a1a1a')
+         .text(`${i + 1}. ${med.name}`, 65, y + 10);
+
+      doc.fontSize(9).font('Helvetica').fillColor('#555');
+      let detailY = y + 26;
+      if (med.dosage) {
+        doc.text(`Dosage: ${med.dosage}`, 65, detailY);
+        detailY += 12;
+      }
+      const details = [];
+      if (med.frequency) details.push(`Frequency: ${med.frequency}`);
+      if (med.duration)  details.push(`Duration: ${med.duration}`);
+      if (details.length > 0) doc.text(details.join('   ·   '), 65, detailY);
+      if (med.instructions) {
+        detailY += 12;
+        doc.fillColor('#1565C0').text(`Note: ${med.instructions}`, 65, detailY);
+      }
+
+      y += 70;
+    });
+
+    // ── Clinical notes ─────────────────────────────────────
+    if (prescription.clinicalNotes) {
+      y += 5;
+      doc.roundedRect(50, y, 495, 60, 8).fill('#FFF8E1');
+      doc.fontSize(10).font('Helvetica-Bold').fillColor('#F57F17')
+         .text('Doctor\'s Notes', 65, y + 10);
+      doc.fontSize(9).font('Helvetica').fillColor('#5D4037')
+         .text(prescription.clinicalNotes, 65, y + 25, { width: 465 });
+      y += 70;
+    }
+
+    // ── Lab tests requested ────────────────────────────────
+    if (prescription.labRequestRef) {
+      y += 5;
+      doc.roundedRect(50, y, 495, 35, 6).fill('#E8F5E9');
+      doc.fontSize(10).font('Helvetica-Bold').fillColor('#2E7D32')
+         .text(`🧪 Lab Tests Requested — Ref: ${prescription.labRequestRef}`, 65, y + 12);
+      y += 45;
+    }
+
+    // ── Footer ─────────────────────────────────────────────
+    const generatedOn = new Date().toLocaleDateString('en-GB', {
+      day: '2-digit', month: 'long', year: 'numeric',
+    });
+    doc.fontSize(8).font('Helvetica').fillColor('#9E9E9E')
+       .text(
+         `Generated on ${generatedOn} · ${CLINIC.name} · ${CLINIC.tel}`,
+         50, 760, { align: 'center', width: 495 }
+       );
+
+    doc.end();
+
+  } catch (error) {
+    console.error('getPrescriptionPDF error:', error);
+    res.status(500).json({ success: false, message: 'Server error generating PDF', error: error.message });
   }
 };
