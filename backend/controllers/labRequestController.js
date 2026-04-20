@@ -1,4 +1,5 @@
 import LabRequest from '../models/LabRequest.js';
+import { autoCreateLabBill } from './LabBillController.js';
 
 // ── Create standalone lab request (doctor opens lab page directly) ──
 export const createLabRequest = async (req, res) => {
@@ -20,9 +21,14 @@ export const createLabRequest = async (req, res) => {
       tests,
       priority:          priority || 'Routine',
       clinicalNotes:     clinicalNotes || '',
+      cashierNotified:   true,
+      cashierNotifiedAt: new Date(),
     });
 
     res.status(201).json({ success: true, message: 'Lab request created', labRequest });
+
+    // Auto-create lab bill for cashier
+    try { await autoCreateLabBill(labRequest, req.user._id); } catch (e) { console.error('Auto lab bill error:', e.message); }
   } catch (error) {
     console.error('Create lab request error:', error);
     res.status(500).json({ success: false, message: 'Server error', error: error.message });

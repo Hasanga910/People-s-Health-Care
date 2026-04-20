@@ -21,7 +21,8 @@ const prescriptionSchema = new mongoose.Schema({
   appointmentId: { type: String, default: null },   // e.g. "APT-2026-0001"
 
   // Medications only — lab tests live in LabRequest now
-  medications:   { type: [medicationSchema], required: true, validate: v => v.length > 0 },
+  // medications can be empty for lab-only prescriptions
+  medications:   { type: [medicationSchema], default: [] },
   clinicalNotes: { type: String, default: '' },
 
   // Optional link to a lab request if doctor also requested tests
