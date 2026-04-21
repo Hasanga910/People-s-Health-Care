@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-// ── Logout Confirmation Modal ──────────────────────────────────
+// ── Logout Confirmation Modal ───────────────
 function LogoutModal({ onConfirm, onCancel }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
