@@ -6,6 +6,7 @@ import {
   getRatingDistribution,
   getFeedbackById,
   deleteFeedback,
+  getMixedTestimonials,
 } from '../controllers/feedbackcontroller.js';
 
 import { protect }    from '../middleware/auth.js';
@@ -15,6 +16,7 @@ const router = express.Router();
 
 // ─── Public route (no auth) — top rated feedback for index page ───────────────
 router.get('/public/top', getAllFeedback);
+router.get('/public/mixed', getMixedTestimonials);
 
 // ─── Patient routes ────────────────────────────────────────────────────────────
 //must be logged in + patient role → runs submitFeedback.
