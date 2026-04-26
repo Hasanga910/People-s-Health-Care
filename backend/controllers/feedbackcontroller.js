@@ -12,18 +12,22 @@ export const submitFeedback = async (req, res) => {
     const patientId   = req.user.id;
     const patientName = req.user.name;
 
-    if (!rating) {
-      return res.status(400).json({ message: 'A star rating is required.' });
+    // At least one of rating or description must be provided
+    const hasRating      = rating !== undefined && rating !== null && rating !== '';
+    const hasDescription = description && description.trim().length > 0;
+
+    if (!hasRating && !hasDescription) {
+      return res.status(400).json({ message: 'Please provide a star rating, a written review, or both.' });
     }
-    if (rating < 1 || rating > 5) {
+    if (hasRating && (Number(rating) < 1 || Number(rating) > 5)) {
       return res.status(400).json({ message: 'Rating must be between 1 and 5' });
     }
 
     const feedback = new Feedback({
       patientId,
       patientName,
-      rating,
-      ...(description && { description }),
+      ...(hasRating      && { rating: Number(rating) }),
+      ...(hasDescription && { description: description.trim() }),
     });
     const saved    = await feedback.save();
 
@@ -98,9 +102,13 @@ export const getAllFeedback = async (req, res) => {
 //⭐⭐⭐⭐⭐  → 42 reviews
 export const getRatingDistribution = async (req, res) => {
   try {
-    const distribution = await Feedback.aggregate([
-      { $group: { _id: '$rating', count: { $sum: 1 } } },
-      { $sort: { _id: -1 } },
+    const [distribution, totalReviews] = await Promise.all([
+      Feedback.aggregate([
+        { $match: { rating: { $ne: null, $exists: true } } },
+        { $group: { _id: '$rating', count: { $sum: 1 } } },
+        { $sort: { _id: -1 } },
+      ]),
+      Feedback.countDocuments({}),
     ]);
 
     const result = [5, 4, 3, 2, 1].map((star) => {
@@ -108,10 +116,10 @@ export const getRatingDistribution = async (req, res) => {
       return { rating: star, count: found ? found.count : 0 };
     });
 
-    const totalReviews  = result.reduce((sum, r) => sum + r.count, 0);
-    const averageRating = totalReviews === 0
+    const ratedCount    = result.reduce((sum, r) => sum + r.count, 0);
+    const averageRating = ratedCount === 0
       ? 0
-      : result.reduce((sum, r) => sum + r.rating * r.count, 0) / totalReviews;
+      : result.reduce((sum, r) => sum + r.rating * r.count, 0) / ratedCount;
 
     res.status(200).json({
       distribution: result,
@@ -143,10 +151,41 @@ export const getFeedbackById = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// @desc    Delete feedback  (Cashier only)
-// @route   DELETE /api/feedback/:id
-// @access  Private – cashier role
+// @desc    Get mixed-rating testimonials for home page
+//          3 latest 5-star, 1 latest 4-star, 1 latest 3-star, 1 latest 2-star
+// @route   GET /api/feedback/public/mixed
+// @access  Public
 // ─────────────────────────────────────────────────────────────────────────────
+export const getMixedTestimonials = async (req, res) => {
+  try {
+    const [fiveStar, fourStar, threeStar, twoStar] = await Promise.all([
+      Feedback.find({ rating: 5, description: { $exists: true, $ne: '' } })
+        .sort({ createdAt: -1 })
+        .limit(3)
+        .select('-__v'),
+      Feedback.find({ rating: 4, description: { $exists: true, $ne: '' } })
+        .sort({ createdAt: -1 })
+        .limit(1)
+        .select('-__v'),
+      Feedback.find({ rating: 3, description: { $exists: true, $ne: '' } })
+        .sort({ createdAt: -1 })
+        .limit(1)
+        .select('-__v'),
+      Feedback.find({ rating: 2, description: { $exists: true, $ne: '' } })
+        .sort({ createdAt: -1 })
+        .limit(1)
+        .select('-__v'),
+    ]);
+
+    const feedbacks = [...fiveStar, ...fourStar, ...threeStar, ...twoStar];
+
+    res.status(200).json({ feedbacks });
+  } catch (error) {
+    console.error('getMixedTestimonials error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 export const deleteFeedback = async (req, res) => {
   try {
     const feedback = await Feedback.findById(req.params.id);
